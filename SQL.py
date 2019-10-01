@@ -1,0 +1,457 @@
+# 262
+"""
+SELECT t.Request_at AS "Day", 
+        CAST(SUM(CASE 
+                WHEN t.Status != 'completed' THEN 1
+                ELSE 0
+           END) / COUNT(*) AS decimal(16,2)) AS "Cancellation Rate"
+FROM Trips t
+LEFT JOIN Users u1 on u1.Users_Id =  t.Client_Id
+LEFT JOIN Users u2 on u2.Users_Id =  t.Driver_Id
+WHERE u1.Banned = 'No' AND u2.Banned = 'No' AND t.Request_at BETWEEN "2013-10-01" AND "2013-10-03"
+GROUP BY t.Request_at
+;
+"""
+
+# 185
+"""
+SELECT d.Name AS "Department", e.Name AS "Employee", e.Salary
+FROM Employee e
+JOIN Department d on e.DepartmentId = d.Id
+JOIN (
+    SELECT e.Name, COUNT(DISTINCT e2.Salary) AS "Rownum"
+    FROM Employee e
+    JOIN Employee e2 on e.DepartmentId = e2.DepartmentId
+    WHERE  e.Salary <= e2.Salary AND e.DepartmentId = e2.DepartmentId
+    GROUP BY e.Id ) t on e.Name = t.Name
+WHERE t.RowNum <=3
+ORDER BY d.Name ASC, e.Salary DESC
+;
+"""
+
+# 579
+"""
+SELECT e.Id AS "id", e.Month AS "month", SUM(e2.Salary) AS "Salary"
+FROM Employee e
+JOIN Employee e2 on e.Id = e2.Id
+WHERE e.Month < (SELECT MAX(e3.Month) 
+                 FROM Employee e3
+                 WHERE e.Id = e3.Id) AND e.Month >= e2.Month 
+                                     AND e.Month - 3 < e2.Month
+GROUP BY e.Id, e.Month
+ORDER BY e.Id ASC, e.Month DESC
+;
+"""
+
+# 601
+"""
+SELECT s1.id, s1.visit_date, s1.people
+FROM stadium s1
+WHERE (SELECT COUNT(*)
+       FROM stadium s2
+       WHERE s1.id < s2.id + 1 AND s1.id > s2.id - 3 AND s2.people>=100) = 3
+       OR
+       (SELECT COUNT(*)
+       FROM stadium s3
+       WHERE s1.id < s3.id + 2 AND s1.id > s3.id - 2 AND s3.people>=100) = 3
+       OR
+       (SELECT COUNT(*)
+       FROM stadium s4
+       WHERE s1.id < s4.id + 3 AND s1.id > s4.id - 1 AND s4.people>=100) = 3 
+"""
+
+
+# 615
+"""
+SELECT t1.pay_month, t1.department_id,             
+        (CASE WHEN CAST(t1.avg_salary AS decimal(16,2)) > (SELECT CAST(AVG(s2.amount) AS decimal(16,2))
+                                    FROM salary s2
+                                    WHERE DATE_FORMAT(s2.pay_date,'%Y-%m') = t1.pay_month) THEN "higher"
+              WHEN CAST(t1.avg_salary AS decimal(16,2)) = (SELECT CAST(AVG(s2.amount) AS decimal(16,2))
+                                    FROM salary s2
+                                    WHERE DATE_FORMAT(s2.pay_date,'%Y-%m') = t1.pay_month) THEN "same"
+         ELSE "lower"
+         END) AS "comparison"
+FROM (
+    SELECT DATE_FORMAT(s.pay_date,'%Y-%m') AS "pay_month", 
+                e.department_id AS "department_id", AVG(s.amount) AS "avg_salary"
+    FROM salary s
+    JOIN employee e on s.employee_id = e.employee_id 
+    GROUP BY e.department_id, DATE_FORMAT(s.pay_date,'%Y-%m') ) t1
+"""
+
+
+# 618
+"""
+SELECT Am_table.America, As_table.Asia, Eu_table.Europe
+FROM (SELECT @am:=@am+1 AS idx_am, s1.name AS America
+      FROM (SELECT @am:=0) c, student s1
+      WHERE s1.continent = 'America'
+      ORDER BY America ASC) Am_table
+LEFT JOIN (
+      SELECT @asia:=@asia+1 AS idx_as, s2.name AS Asia
+      FROM (SELECT @asia:=0) c, student s2
+      WHERE s2.continent = 'Asia'
+      ORDER BY Asia ASC) As_table
+ON Am_table.idx_am = As_table.idx_as
+LEFT JOIN (
+      SELECT @eu:=@eu+1 AS idx_eu, s3.name AS Europe
+      FROM (SELECT @eu:=0) c, student s3
+      WHERE s3.continent = 'Europe'
+      ORDER BY Europe ASC) Eu_table
+ON Am_table.idx_am = Eu_table.idx_eu
+"""
+
+# 1127
+"""
+SELECT DISTINCT (sp.spend_date), sp3.platform, 
+                IFNULL(clean_spending.total_amount,0) AS "total_amount",
+                IFNULL(clean_spending.total_users,0) AS "total_users"
+FROM Spending sp
+CROSS JOIN 
+    (SELECT DISTINCT (sp2.platform)
+     FROM Spending sp2
+     UNION (SELECT 'both' FROM Spending sp3)) sp3
+LEFT JOIN 
+    (SELECT s.spend_date,
+           (CASE WHEN s2.count_platform = 2 THEN "both" ELSE s.platform END) AS "clean_platform",
+           SUM(s.amount) AS "total_amount", 
+           COUNT(DISTINCT s.user_id) AS "total_users"
+    FROM Spending s
+    LEFT JOIN (SELECT user_id, spend_date, COUNT(DISTINCT platform) AS count_platform
+        FROM Spending
+        GROUP BY user_id, spend_date) s2
+    ON s.user_id = s2.user_id AND s.spend_date = s2.spend_date
+    GROUP BY s.spend_date, clean_platform ) clean_spending
+ON sp.spend_date = clean_spending.spend_date AND sp3.platform = clean_spending.clean_platform
+ORDER BY CASE sp3.platform WHEN "desktop" THEN 0
+                           WHEN "mobile" THEN 1
+                           ELSE 2
+                           END
+"""
+
+# 571
+"""
+SELECT agg2.Clean_median AS "median"
+FROM (SELECT agg.cum_fre, 
+           CASE WHEN agg.cum_fre=0.5 THEN (agg.Number + agg.Sub_num)/2
+           ELSE agg.Number END AS Clean_median
+    FROM (SELECT n1.Number, MIN(n2.Number) AS "Sub_num",
+           @fre:=@fre+n1.Frequency/(SELECT SUM(n3.Frequency)
+                                    FROM Numbers n3) AS cum_fre
+         FROM (SELECT @fre:=0) c, Numbers n1
+         LEFT JOIN Numbers n2 on n1.Number < n2.Number 
+         GROUP BY n1.Number) agg ) agg2
+WHERE agg2.cum_fre >=0.5
+ORDER BY agg2.Clean_median
+LIMIT 1
+"""
+
+# 1159
+"""
+SELECT DISTINCT u2.user_id AS "seller_id", agg.2nd_item_fav_brand
+FROM Users u2
+LEFT JOIN (
+    SELECT o1.seller_id, CASE WHEN u.favorite_brand = i.item_brand THEN "yes"
+                              ELSE "no" END AS "2nd_item_fav_brand"
+    FROM Orders o1
+    LEFT JOIN Users u on o1.seller_id = u.user_id
+    LEFT JOIN Items i on o1.item_id = i.item_id
+    WHERE (SELECT COUNT(order_id) FROM Orders o2 
+           WHERE o1.seller_id = o2.seller_id 
+           AND o1.order_date>o2.order_date) = 1
+
+    ) agg
+ON u2.user_id = agg.seller_id
+ORDER BY u2.user_id
+"""
+
+# 1097
+"""
+SELECT a.event_date AS "install_dt",
+       COUNT(DISTINCT a.player_id) AS "installs", 
+       CAST(AVG(CASE WHEN a3.games_played>0 THEN 1
+           ELSE 0 END) AS decimal(16,2)) AS "Day1_retention"
+FROM ((SELECT a2.player_id, MIN(a2.event_date) AS "event_date"
+       FROM Activity a2
+       GROUP BY a2.player_id)) a
+LEFT JOIN Activity a3 
+ON a3.player_id = a.player_id AND a3.event_date = DATE_ADD(a.event_date, INTERVAL 1 DAY)             
+GROUP BY a.event_date
+"""
+
+# 569
+"""
+SELECT clean.Id, clean.Company , clean.Salary
+FROM (
+    SELECT e.Id, e.Company, e.Salary, (
+           SELECT SUM( CASE WHEN e2.Salary <= e.Salary AND e2.Id < e.Id THEN 1
+                            WHEN e2.Salary < e.Salary THEN 1
+                            ELSE 0 END) 
+           FROM Employee e2
+           WHERE e2.Company = e.Company AND e2.Salary <= e.Salary ) AS "small", 
+           (SELECT SUM( CASE WHEN e3.Salary >= e.Salary AND e3.Id > e.Id THEN 1
+                             WHEN e3.Salary > e.Salary THEN 1
+                             ELSE 0 END) 
+           FROM Employee e3
+           WHERE e3.Company = e.Company AND e3.Salary >= e.Salary ) AS "large"
+    FROM Employee e ) clean
+WHERE ABS(clean.small - clean.large) <= 1 
+ORDER BY clean.Company, clean.Salary
+"""
+
+# below is faster
+"""
+SELECT clean.Id, clean.Company, clean.Salary
+FROM (
+    SELECT e.Id, e.Company, e.Salary, (
+               SELECT SUM( CASE WHEN e2.Salary <= e.Salary AND e2.Id < e.Id THEN 1
+                                WHEN e2.Salary < e.Salary THEN 1
+                                ELSE 0 END) + 1
+               FROM Employee e2
+               WHERE e2.Company = e.Company AND e2.Salary <= e.Salary ) AS "small",
+               e4.sum_count
+    FROM Employee e
+    LEFT JOIN (SELECT e3.Company, COUNT(*) AS "sum_count"
+               FROM Employee e3
+               GROUP BY e3.Company) e4
+    ON e.Company = e4.Company ) clean
+WHERE ABS((clean.sum_count + 1)/2 - clean.small) <= 0.5
+ORDER BY clean.Company, clean.Salary
+"""
+
+# 1194
+"""
+SELECT group_max.group_id AS "GROUP_ID", clean2.player_id AS "PLAYER_ID"
+FROM (
+    SELECT clean.group_id, MAX(clean.total_score) AS "max_score"
+    FROM (
+        SELECT p.player_id, p.group_id, 
+               SUM(IFNULL(m.first_score, 0)) AS "total_score"
+        FROM Players p
+        LEFT JOIN (SELECT m.first_player, m.first_score
+                   FROM Matches m
+                   UNION ALL (SELECT m2.second_player, m2.second_score
+                          FROM Matches m2)) m
+        ON p.player_id = m.first_player
+        GROUP BY p.player_id, p.group_id) clean
+    GROUP BY clean.group_id) group_max
+JOIN (
+    SELECT p.player_id, p.group_id, 
+           SUM(IFNULL(m.first_score, 0)) AS "total_score"
+    FROM Players p
+    LEFT JOIN (SELECT m.first_player, m.first_score
+               FROM Matches m
+               UNION ALL(SELECT m2.second_player, m2.second_score
+                      FROM Matches m2)) m
+    ON p.player_id = m.first_player
+    GROUP BY p.player_id, p.group_id) clean2
+ON group_max.max_score = clean2.total_score AND group_max.group_id = clean2.group_id
+WHERE clean2.player_id = (SELECT MIN(clean3.player_id)
+                         FROM (
+                                SELECT p.player_id, p.group_id, 
+                                       SUM(IFNULL(m.first_score, 0)) AS "total_score"
+                                FROM Players p
+                                LEFT JOIN (SELECT m.first_player, m.first_score
+                                           FROM Matches m
+                                           UNION ALL(SELECT m2.second_player, m2.second_score
+                                                  FROM Matches m2)) m
+                                ON p.player_id = m.first_player
+                                GROUP BY p.player_id, p.group_id) clean3
+                         WHERE clean3.total_score = group_max.max_score AND clean3.group_id = clean2.group_id)
+ORDER BY group_max.group_id
+"""
+
+# 614
+"""
+SELECT DISTINCT f.follower, f3.num
+FROM follow f 
+JOIN (SELECT f2.followee, COUNT(DISTINCT f2.follower) AS "num"
+      FROM follow f2
+      GROUP BY f2.followee) f3
+ON f.follower = f3.followee
+ORDER BY f.follower
+"""
+
+# 117
+"""
+CREATE FUNCTION getNthHighestSalary(N INT) RETURNS INT
+BEGIN
+  RETURN (
+      SELECT clean.Salary
+      FROM (SELECT e.Salary, (SELECT COUNT(DISTINCT e2.Salary) + 1
+                              FROM Employee e2
+                              WHERE e2.Salary < e.Salary) AS "nth"
+            FROM Employee e ) clean
+      WHERE clean.nth = N
+      LIMIT 1
+      
+  );
+END
+"""
+# faster
+"""
+CREATE FUNCTION getNthHighestSalary(N INT) RETURNS INT
+BEGIN
+
+DECLARE row_start INT;
+SET row_start = N - 1;
+
+  RETURN (
+      SELECT DISTINCT e.Salary
+      FROM Employee e
+      ORDER BY e.Salary DESC
+      LIMIT 1 OFFSET row_start
+      
+  );
+END
+"""
+
+# 184
+"""
+SELECT d.Name AS "Department", e.Name AS "Employee", e.Salary
+FROM Employee e
+JOIN Department d ON e.DepartmentId = d.Id
+WHERE (SELECT COUNT(DISTINCT e2.Id)
+       FROM Employee e2
+       WHERE e2.Salary > e.Salary AND e2.DepartmentId  = e.DepartmentId ) = 0
+"""
+# faster
+"""
+SELECT d.Name AS "Department", e.Name AS "Employee", e.Salary
+FROM Employee e
+JOIN Department d ON e.DepartmentId = d.Id
+WHERE (e.DepartmentId, e.Salary) IN
+      ( SELECT e2.DepartmentId, MAX(e2.Salary)
+        FROM Employee e2
+        GROUP BY e2.DepartmentId
+      )
+"""
+
+# 1132
+"""
+SELECT ROUND(AVG(clean.daily) * 100, 2) AS "average_daily_percent"
+FROM (
+    SELECT a.action_date, COUNT(DISTINCT CASE WHEN r.remove_date IS NOT NULL THEN a.post_id END)/COUNT(DISTINCT a.post_id) AS "daily"
+    FROM Actions a 
+    LEFT JOIN Removals r
+    ON a.post_id = r.post_id
+    WHERE a.extra = "spam"
+    GROUP BY a.action_date ) clean
+"""
+
+# 180
+"""
+SELECT DISTINCT l.Num AS "ConsecutiveNums"
+FROM Logs l
+JOIN Logs l2
+ON l.Id + 1 = l2.Id
+JOIN Logs l3
+ON l2.Id + 1 = l3.Id
+WHERE l.Num = l2.Num AND l2.Num = l3.Num
+ORDER BY l.NUm ASC
+"""
+
+# 578
+"""
+SELECT clean.question_id AS "survey_log"
+FROM (
+    SELECT s.question_id, 
+           SUM(CASE WHEN action = "answer" THEN 1 END)/
+           SUM(CASE WHEN action = "show" THEN 1 END) AS "answer_rate"
+    FROM survey_log s
+    GROUP BY s.question_id) clean
+ORDER BY clean.answer_rate DESC
+LIMIT 1
+"""
+
+# 574
+"""
+SELECT c.Name
+FROM (
+    SELECT clean_vote.CandidateId
+    FROM (
+        SELECT v.CandidateId, COUNT(v.CandidateId) AS "num_vote"
+        FROM Vote v
+        GROUP BY v.CandidateId) clean_vote
+    ORDER BY clean_vote.num_vote DESC
+    LIMIT 1 ) clean2
+JOIN Candidate c
+ON clean2.CandidateId = c.id
+"""
+
+# 178
+"""
+SELECT s.Score, 
+       (SELECT COUNT(DISTINCT s2.Score)
+        FROM Scores s2
+        WHERE s2.Score > s.Score) + 1 AS "Rank"
+FROM Scores s
+ORDER BY s.Score DESC
+"""
+
+# 1098
+"""
+SELECT b2.book_id, b2.name
+FROM Books b2
+LEFT JOIN (
+    SELECT o.book_id, b.name, SUM(quantity) AS "num_sold"
+    FROM Orders o
+    LEFT JOIN Books b
+    ON o.book_id = b.book_id
+    WHERE o.dispatch_date BETWEEN DATE_SUB('2019-06-23', INTERVAL 1 YEAR) AND '2019-06-23'
+    GROUP BY o.book_id ) sold
+ON b2.book_id = sold.book_id
+WHERE b2.available_from < DATE_SUB('2019-06-23', INTERVAL 1 MONTH)
+AND IFNULL(sold.num_sold, 0) < 10
+"""
+
+# 1107
+"""
+SELECT first_login.login_date, COUNT(DISTINCT first_login.user_id) AS "user_count"
+FROM (
+    SELECT t.user_id, MIN(t.activity_date) AS "login_date"
+    FROM Traffic t
+    WHERE t.activity = "login"
+    GROUP BY t.user_id) first_login
+WHERE first_login.login_date BETWEEN DATE_SUB("2019-06-30", INTERVAL 90 DAY) 
+AND "2019-06-30"
+GROUP BY first_login.login_date
+"""
+
+# 550
+"""
+SELECT ROUND(COUNT(DISTINCT CASE WHEN a2.event_date IS NOT NULL THEN a.player_id END)/ COUNT(DISTINCT a.player_id),2) AS "fraction"
+FROM Activity a
+LEFT JOIN Activity a2
+ON DATE_ADD(a.event_date, INTERVAL 1 DAY) = a2.event_date  AND a.player_id = a2.player_id
+JOIN (SELECT a3.player_id, MIN(a3.event_date) AS "start_date"
+      FROM Activity a3
+      GROUP BY a3.player_id
+      ) start_date_table
+ON a.event_date = start_date_table.start_date AND a.player_id = start_date_table.player_id
+"""
+
+# 580
+"""
+SELECT d.dept_name, COUNT(DISTINCT s.student_id) AS "student_number"
+FROM department d
+LEFT JOIN student s
+ON d.dept_id = s.dept_id
+GROUP BY d.dept_name
+ORDER BY student_number DESC, d.dept_name
+"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
