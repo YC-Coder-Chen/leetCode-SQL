@@ -442,6 +442,98 @@ GROUP BY d.dept_name
 ORDER BY student_number DESC, d.dept_name
 """
 
+# 1070
+"""
+SELECT s2.product_id, s2.year AS "first_year", s2.quantity, s2.price
+FROM Sales s2
+JOIN (
+    SELECT s.product_id, MIN(s.year) AS "year"
+    FROM Sales s
+    GROUP BY s.product_id ) first_year
+ON s2.product_id = first_year.product_id AND s2.year = first_year.year
+"""
+
+# 602
+"""
+SELECT union_table.requester_id AS "id", COUNT(*) AS "num"
+FROM (
+    SELECT r.requester_id
+    FROM request_accepted r
+    UNION ALL (SELECT r2.accepter_id
+           FROM request_accepted r2)) union_table
+GROUP BY union_table.requester_id
+ORDER BY num DESC
+LIMIT 1
+"""
+
+# 1149
+"""
+SELECT DISTINCT count_views.viewer_id AS "id"
+FROM (
+    SELECT v.viewer_id, v.view_date, COUNT(DISTINCT v.article_id) AS "views"
+    FROM Views v
+    GROUP BY v.viewer_id, v.view_date) count_views
+WHERE count_views.views >= 2
+"""
+
+# 585
+"""
+SELECT ROUND(SUM(distinct_table.TIV_2016),2) AS "TIV_2016"
+FROM (
+    SELECT DISTINCT i.PID, i.TIV_2016, i3.LAT AS "LAT"
+    FROM insurance i
+    JOIN insurance i2 ON i.TIV_2015 = i2.TIV_2015 AND i.PID != i2.PID
+    LEFT JOIN insurance i3 ON i.LAT = i3.LAT AND i.LON = i3.LON AND i.PID != i3.PID
+    ) distinct_table
+WHERE distinct_table.LAT IS NULL
+"""
+
+# 585 takes longer time but more clear
+"""
+SELECT ROUND(SUM(condition_table.TIV_2016),2) AS "TIV_2016"
+FROM (
+    SELECT i.PID, i.TIV_2016,
+           (SELECT COUNT(DISTINCT i2.PID) 
+            FROM insurance i2
+            WHERE i2.TIV_2015=i.TIV_2015 AND i2.PID!=i.PID) AS "first_req",
+           (SELECT COUNT(DISTINCT i3.PID) 
+            FROM insurance i3
+            WHERE i3.LAT=i.LAT AND i3.LON=i.LON AND i3.PID!=i.PID) AS "second_req"   
+    FROM  insurance i ) condition_table
+WHERE condition_table.first_req !=0 AND condition_table.second_req = 0
+"""
+# 1205
+"""
+SELECT union_table.month, union_table.country, 
+       SUM(CASE WHEN union_table.state = "approved" THEN 1 ELSE 0 END)
+       AS "approved_count",
+       SUM(CASE WHEN union_table.state = "approved" THEN union_table.amount ELSE 0 END)
+       AS "approved_amount",    
+       SUM(CASE WHEN union_table.state = "Chargebacks" THEN 1 ELSE 0 END) AS "chargeback_count",
+       SUM(CASE WHEN union_table.state = "Chargebacks" THEN union_table.amount ELSE 0 END)
+       AS "chargeback_amount"       
+FROM (
+    SELECT c.trans_id, t.country, "Chargebacks" AS "state", t.amount, DATE_FORMAT(c.trans_date, "%Y-%m") AS "month"
+    FROM Chargebacks c
+    LEFT JOIN Transactions t on t.id = c.trans_id
+    UNION (SELECT t2.id, t2.country, t2.state, t2.amount, 
+           DATE_FORMAT(t2.trans_date, "%Y-%m") AS "month"
+           FROM Transactions t2)) union_table
+GROUP BY union_table.month, union_table.country
+HAVING approved_count + approved_amount + chargeback_count + chargeback_amount > 0
+"""
+
+# 1158
+"""
+SELECT u.user_id AS "buyer_id", u.join_date, IFNULL(clean_orders.orders_in_2019, 0) AS "orders_in_2019"
+FROM Users u
+LEFT JOIN (SELECT o.buyer_id, COUNT(DISTINCT order_id) AS 'orders_in_2019'
+           FROM Orders o
+           WHERE YEAR(o.order_date) = 2019
+           GROUP BY o.buyer_id) clean_orders
+ON u.user_id = clean_orders.buyer_id
+"""
+           
 
 
 
