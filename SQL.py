@@ -82,6 +82,7 @@ FROM (
 
 
 # 618
+# use @ function to create row_number()
 """
 SELECT Am_table.America, As_table.Asia, Eu_table.Europe
 FROM (SELECT @am:=@am+1 AS idx_am, s1.name AS America
@@ -533,17 +534,58 @@ LEFT JOIN (SELECT o.buyer_id, COUNT(DISTINCT order_id) AS 'orders_in_2019'
            GROUP BY o.buyer_id) clean_orders
 ON u.user_id = clean_orders.buyer_id
 """
-           
 
+# 1174
+"""
+SELECT ROUND(COUNT(DISTINCT CASE WHEN first_table.first_date = d2.customer_pref_delivery_date THEN d2.customer_id END)/COUNT(DISTINCT d2.customer_id) * 100,2) AS "immediate_percentage"
+FROM (
+    SELECT d.customer_id, MIN(d.order_date) AS "first_date"
+    FROM Delivery d
+    GROUP BY d.customer_id) first_table
+LEFT JOIN Delivery d2
+ON d2.customer_id = first_table.customer_id AND d2.order_date = first_table.first_date
+"""
 
+# 1174 
+# faster, using IN is faster than the previous one
+"""
+SELECT ROUND(COUNT(DISTINCT CASE WHEN d.order_date = d.customer_pref_delivery_date THEN d.customer_id END)/COUNT(DISTINCT d.customer_id) * 100,2) AS "immediate_percentage"
+FROM Delivery d
+WHERE (d.customer_id, d.order_date) IN (SELECT d2.customer_id, MIN(d2.order_date)
+									    FROM delivery d2
+									    GROUP BY d2.customer_id)
+"""
 
+# 612
+# no aggregate function allowed during features created by select
+"""
+SELECT ROUND((SELECT MIN(SQRT(POWER(p.x-p2.x,2) + POWER(p.y-p2.y,2)))
+        FROM point_2d p2
+        WHERE p.x != p2.x OR p.y!=p2.y),2) AS "shortest"
+FROM point_2d p
+ORDER BY shortest ASC
+LIMIT 1
+"""
 
+# 626
+"""
+SELECT s.id, IFNULL(CASE WHEN MOD(s.id,2) = 1 THEN s2.student
+                  WHEN MOD(s.id,2) = 0 THEN s3.student
+                  END, s.student) AS "student" 
+FROM seat s
+LEFT JOIN seat s2 on s.id + 1 = s2.id 
+LEFT JOIN seat s3 on s.id - 1 = s3.id
+ORDER BY s.id ASC
+"""
 
-
-
-
-
-
-
-
+# 1193
+"""
+SELECT DATE_FORMAT(t.trans_date, "%Y-%m") AS "month", t.country, 
+       COUNT(DISTINCT t.id) AS "trans_count",
+       COUNT(DISTINCT CASE WHEN t.state = "approved" THEN t.id END) AS "approved_count",
+       SUM(t.amount) AS "trans_total_amount",
+       SUM(CASE WHEN t.state = "approved" THEN t.amount ELSE 0 END) AS "approved_total_amount"
+FROM Transactions t
+GROUP BY DATE_FORMAT(t.trans_date, "%Y-%m"), t.country
+"""
 
