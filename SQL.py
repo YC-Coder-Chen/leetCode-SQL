@@ -589,3 +589,111 @@ FROM Transactions t
 GROUP BY DATE_FORMAT(t.trans_date, "%Y-%m"), t.country
 """
 
+# 1212
+"""
+SELECT t.team_id, t.team_name, IFNULL(SUM(clean_score.host_score),0) AS "num_points"
+FROM Teams t
+LEFT JOIN (
+    SELECT host_table.*
+    FROM (SELECT m.host_team, m.guest_team,
+          (CASE WHEN m.host_goals > m.guest_goals THEN 3
+                WHEN m.host_goals = m.guest_goals THEN 1
+                ELSE 0 END) AS "host_score"
+          FROM Matches m) host_table
+    UNION ALL
+    (SELECT m2.guest_team, m2.host_team,
+           (CASE WHEN m2.host_goals < m2.guest_goals THEN 3
+                 WHEN m2.host_goals = m2.guest_goals THEN 1
+                 ELSE 0 END) AS "guest_score"
+            FROM Matches m2)) clean_score 
+ON t.team_id = clean_score.host_team
+GROUP BY t.team_id
+ORDER BY num_points DESC, team_id ASC
+"""
+
+# 1164
+"""
+SELECT DISTINCT p3.product_id, IFNULL(price_table.price, 10) AS "price"
+FROM Products p3
+LEFT JOIN (
+    SELECT p.product_id, p.new_price AS "price"
+    FROM Products p
+    WHERE (p.product_id, p.change_date) IN 
+        (SELECT p2.product_id, MAX(p2.change_date) AS "change_date"
+         FROM Products p2
+         WHERE p2.change_date <= '2019-08-16'
+         GROUP BY p2.product_id
+         )
+    ) price_table
+ON p3.product_id = price_table.product_id
+ORDER BY price DESC
+"""
+
+# 608
+"""
+SELECT count_table.id, (CASE WHEN count_table.p_id IS NULL THEN "Root"
+                  WHEN count_table.parent_count = 0 THEN "Leaf"
+                  ELSE "Inner" END) AS "Type"
+FROM (
+    SELECT t.id, t.p_id, (SELECT COUNT(t2.p_id)
+                    FROM tree t2
+                    WHERE t2.p_id = t.id) AS 'parent_count'
+    FROM tree t ) count_table
+"""
+
+# 608 
+# using join is faster
+"""
+SELECT t2.id , (CASE WHEN t2.p_id IS NULL THEN "Root"
+                   WHEN parent_table.parent_count IS NULL THEN "Leaf"
+                   ELSE 'Inner' END) AS "Type"
+                   
+FROM tree t2
+LEFT JOIN (
+    SELECT t.p_id, COUNT(t.p_id) AS "parent_count"
+    FROM tree t
+    WHERE t.p_id IS NOT NULL
+    GROUP BY t.p_id) parent_table
+ON t2.id = parent_table.p_id
+"""
+
+# 1112
+"""
+SELECT e2.student_id, MIN(e2.course_id) AS "course_id", e2.grade
+FROM Enrollments e2
+WHERE (e2.student_id, e2.grade) IN (SELECT e.student_id, MAX(e.grade) AS "grade"
+                                    FROM Enrollments e
+                                    GROUP BY e.student_id)
+GROUP BY e2.student_id
+"""
+
+# 570
+"""
+SELECT e2.Name
+FROM Employee e2
+JOIN (
+    SELECT e.ManagerId, COUNT(DISTINCT e.Id) AS "num_reporters"
+    FROM Employee e
+    GROUP BY e.ManagerId 
+    HAVING num_reporters >= 5) reporters_table
+ON e2.Id = reporters_table.ManagerId
+"""
+
+# 534
+"""
+SELECT a.player_id, a.event_date, (SELECT SUM(games_played)
+                                                FROM Activity a2
+                                                WHERE a2.player_id = a.player_id AND a2.event_date <= a.event_date) AS "games_played_so_far"
+FROM Activity a
+"""
+
+# 534
+# faster
+"""
+SELECT a.player_id, a.event_date, SUM(a2.games_played) AS "games_played_so_far"
+FROM Activity a, Activity a2
+WHERE a.player_id = a2.player_id AND a.event_date >= a2.event_date
+GROUP BY a.player_id, a.event_date
+"""
+
+
