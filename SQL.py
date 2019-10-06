@@ -696,4 +696,83 @@ WHERE a.player_id = a2.player_id AND a.event_date >= a2.event_date
 GROUP BY a.player_id, a.event_date
 """
 
+# 1204
+"""
+SELECT cum_table.person_name
+FROM (
+    SELECT q.person_name, q.weight, q.turn, (@c_weight:=@c_weight + q.weight) AS "cum_weight"
+    FROM Queue q, (SELECT @c_weight:=0) c
+    ORDER BY q.turn ) cum_table
+WHERE cum_table.cum_weight <= 1000
+ORDER BY cum_table.cum_weight DESC
+LIMIT 1
+"""
+
+# 1045
+"""
+SELECT join_table.customer_id
+FROM (
+    SELECT c.customer_id, COUNT(DISTINCT p.product_key) AS "num_product"
+    FROM Customer c
+    JOIN Product p 
+    ON c.product_key = p.product_key
+    GROUP BY c.customer_id) join_table
+WHERE join_table.num_product = (SELECT COUNT(DISTINCT p2.product_key)
+                                FROM Product p2)
+ORDER BY join_table.customer_id ASC
+"""
+
+# 1126
+"""
+SELECT agg.business_id
+FROM (
+    SELECT e2.business_id, COUNT(*) AS "count_above_avg"
+    FROM Events e2
+    LEFT JOIN (
+        SELECT e.event_type, AVG(e.occurences) AS "avg_ocur"
+        FROM Events e
+        GROUP BY e.event_type) sum_table
+    ON e2.event_type = sum_table.event_type
+    WHERE e2.occurences> sum_table.avg_ocur
+    GROUP BY e2.business_id) agg
+WHERE agg.count_above_avg > 1
+"""
+
+# 1077
+"""
+SELECT p2.project_id, p2.employee_id
+FROM Project p2
+LEFT JOIN Employee e2
+ON p2.employee_id = e2.employee_id
+WHERE (p2.project_id, e2.experience_years) IN (
+    SELECT p.project_id, MAX(e.experience_years) AS "max_exp"
+    FROM Project p
+    LEFT JOIN Employee e
+    ON p.employee_id = e.employee_id
+    GROUP BY p.project_id)
+"""
+
+# 176
+# use double select to prevent no rows return
+"""
+SELECT (
+    SELECT DISTINCT e.Salary 
+    FROM Employee e
+    ORDER BY e.Salary DESC 
+    LIMIT 1 OFFSET 1 ) AS "SecondHighestSalary"
+"""
+
+# 1142
+# pay attention to the window case, the length of the windows
+"""
+SELECT ROUND(IFNULL(AVG(user_table.num_session), 0), 2) AS "average_sessions_per_user"
+FROM (
+    SELECT a.user_id, COUNT(DISTINCT a.session_id) AS "num_session"
+    FROM Activity a
+    WHERE a.activity_date BETWEEN DATE_SUB('2019-07-27', INTERVAL 29 DAY)
+    AND '2019-07-27'
+    GROUP BY a.user_id) user_table
+"""
+
+
 
