@@ -774,5 +774,73 @@ FROM (
     GROUP BY a.user_id) user_table
 """
 
+# 196
+"""
+DELETE p
+FROM Person p, Person p2
+WHERE p.Email = p2.Email AND p.ID > p2.Id
+"""
+
+# 196
+# faster
+"""
+DELETE p
+FROM Person p
+LEFT JOIN (SELECT MIN(p2.Id) AS 'Id', p2.Email
+           FROM Person p2
+           GROUP BY p2.Email) group_email
+ON p.Id = group_email.Id
+WHERE group_email.Email IS NULL
+"""
+
+
+# 197
+"""
+SELECT w.Id
+FROM Weather w
+LEFT JOIN Weather w2
+ON DATE_SUB(w.RecordDate, INTERVAL 1 DAY) = w2.RecordDate
+WHERE w.Temperature > w2.Temperature
+"""
+
+# 596
+"""
+SELECT stu_count.class
+FROM (
+    SELECT c.class, COUNT(DISTINCT c.student) AS "num_stu"
+    FROM courses c
+    GROUP BY c.class
+    HAVING num_stu >= 5) stu_count
+"""
+
+# 619
+# put operation in HAVING is faster and saving memory
+"""
+SELECT MAX(count_table.num) AS "num"
+FROM (
+    SELECT m.num
+    FROM my_numbers m
+    GROUP BY m.num
+    HAVING COUNT(*) = 1) count_table
+"""
+
+# 597
+# pay attention to the what is the accpet_rate
+"""
+SELECT ROUND(IFNULL(COUNT(DISTINCT r.requester_id, r.accepter_id)/
+       COUNT(DISTINCT f.sender_id, f.send_to_id),0),2) AS "accept_rate"
+FROM friend_request f, request_accepted r
+"""
+
+# 183
+# where cannot be replace by having, since having need to be applied to columns in the select statement
+"""
+SELECT c.Name AS "Customers"
+FROM Customers c
+LEFT JOIN Orders o
+ON c.Id = o.CustomerId
+WHERE o.ID IS NULL
+"""
+
 
 
