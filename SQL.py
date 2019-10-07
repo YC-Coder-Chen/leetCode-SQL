@@ -842,5 +842,86 @@ ON c.Id = o.CustomerId
 WHERE o.ID IS NULL
 """
 
+# 1211
+"""
+SELECT q.query_name, ROUND(AVG(q.rating/q.position),2) AS "quality",
+       ROUND(AVG(CASE WHEN q.rating < 3 THEN 1 ELSE 0 END)*100,2) AS "poor_query_percentage"
+FROM Queries q
+GROUP BY q.query_name
+"""
 
+# 1083
+"""
+SELECT s.buyer_id
+FROM Sales s
+LEFT JOIN Product p
+ON s.product_id = p.product_id
+GROUP BY s.buyer_id
+HAVING SUM(CASE WHEN p.product_name = 'S8' THEN 1 ELSE 0 END)>0
+AND SUM(CASE WHEN p.product_name = 'iPhone' THEN 1 ELSE 0 END)=0
+"""
+
+# 1083
+# using in clause is faster
+"""
+SELECT DISTINCT s2.buyer_id
+FROM Sales s2
+WHERE s2.buyer_id NOT IN (
+    SELECT s.buyer_id
+    FROM Sales s
+    LEFT JOIN Product p
+    ON s.product_id = p.product_id
+    WHERE p.product_name = 'iPhone')
+AND s2.buyer_id IN (
+    SELECT s3.buyer_id
+    FROM Sales s3
+    LEFT JOIN Product p2
+    ON s3.product_id = p2.product_id
+    WHERE p2.product_name = 'S8')
+"""
+
+# 181
+"""
+SELECT e1.Name AS "Employee"
+FROM Employee e1, Employee e2
+WHERE e1.ManagerId = e2.Id AND e1.Salary > e2.Salary
+"""
+
+# 181
+# use join is slightly faster
+"""
+SELECT e1.Name AS "Employee"
+FROM Employee e1
+LEFT JOIN Employee e2
+ON e1.ManagerId = e2.Id
+WHERE e1.Salary > e2.Salary
+"""
+
+# 1084
+"""
+SELECT DISTINCT s.product_id, p.product_name
+FROM Sales s
+JOIN Product p
+ON s.product_id = p.product_id
+WHERE s.product_id IN (SELECT s2.product_id
+                       FROM Sales s2
+                       WHERE s2.sale_date BETWEEN '2019-01-01' AND '2019-03-31') AND s.product_id NOT IN (
+                      SELECT s3.product_id
+                      FROM Sales s3
+                      WHERE s3.sale_date NOT BETWEEN '2019-01-01' AND '2019-03-31')
+"""
+
+# 1076
+# use having to select rows with max values [return multi-rows]
+"""
+SELECT p.project_id
+FROM Project p
+GROUP BY p.project_id
+HAVING COUNT(DISTINCT employee_id) = (
+    SELECT MAX(count_table.num_count)
+    FROM (
+        SELECT p2.project_id, COUNT(DISTINCT p2.employee_id) AS "num_count"
+        FROM Project p2
+        GROUP BY p2.project_id) count_table)
+"""
 
