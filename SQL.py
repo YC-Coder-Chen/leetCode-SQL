@@ -925,3 +925,87 @@ HAVING COUNT(DISTINCT employee_id) = (
         GROUP BY p2.project_id) count_table)
 """
 
+# 1141
+"""
+SELECT a.activity_date AS "day", COUNT(DISTINCT user_id) AS "active_users"
+FROM Activity a
+WHERE a.activity_date BETWEEN DATE_SUB('2019-07-27', INTERVAL 29 DAY) AND '2019-07-27'
+GROUP BY a.activity_date
+"""
+
+# 175
+"""
+SELECT p.FirstName, p.LastName, a.City, a.State
+FROM Person p
+LEFT JOIN Address a
+ON p.PersonId = a.PersonId
+"""
+
+# 512
+"""
+SELECT a.player_id, a.device_id
+FROM Activity a
+WHERE (a.player_id, a.event_date) IN (
+    SELECT a2.player_id, MIN(a2.event_date)
+    FROM Activity a2
+    GROUP BY a2.player_id)
+"""
+
+# 182
+"""
+SELECT DISTINCT p1.Email
+FROM Person p1, Person p2
+WHERE p1.Id < p2.Id AND p1.Email = p2.Email
+"""
+
+# 182
+# using group by is faster
+"""
+SELECT p1.Email
+FROM Person p1
+GROUP BY p1.Email
+HAVING COUNT(p1.Id) > 1
+"""
+
+# 1075
+"""
+SELECT p.project_id, ROUND(IFNULL(AVG(e.experience_years),0),2) AS "average_years"
+FROM Project p
+LEFT JOIN Employee e
+ON p.employee_id = e.employee_id
+GROUP BY p.project_id
+"""
+
+# 607
+"""
+SELECT s2.name
+FROM salesperson s2
+WHERE s2.sales_id NOT IN (
+    SELECT s.sales_id
+    FROM salesperson s
+    LEFT JOIN orders o
+    ON s.sales_id = o.sales_id
+    JOIN company c
+    ON o.com_id = c.com_id
+    WHERE c.name = "RED")
+"""
+
+# 1113
+"""
+SELECT a.extra AS "report_reason", COUNT(DISTINCT a.post_id) AS "report_count"
+FROM Actions a
+WHERE a.action_date = DATE_SUB('2019-07-05', INTERVAL 1 DAY) AND a.action = 'report'
+GROUP BY a.extra
+"""
+
+# 603
+"""
+SELECT c.seat_id
+FROM cinema c
+LEFT JOIN cinema c2
+ON c.seat_id + 1 = c2.seat_id 
+LEFT JOIN cinema c3
+ON c.seat_id - 1 = c3.seat_id 
+WHERE (c.free = 1 AND c2.free = 1) OR (c.free = 1 AND c3.free = 1)
+"""
+
