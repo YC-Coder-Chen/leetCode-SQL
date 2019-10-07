@@ -1009,3 +1009,103 @@ ON c.seat_id - 1 = c3.seat_id
 WHERE (c.free = 1 AND c2.free = 1) OR (c.free = 1 AND c3.free = 1)
 """
 
+# 577
+"""
+SELECT e.name, b.bonus
+FROM Employee e
+LEFT JOIN Bonus b
+ON e.empId = b.empId
+WHERE IFNULL(b.bonus,0) < 1000
+"""
+
+# 610
+"""
+SELECT t.x, t.y, t.z, 
+       CASE WHEN (t.x + t.y > t.z) AND (t.x + t.z > t.y) AND (t.y + t.z > t.x) THEN "Yes" ELSE "No" END AS "triangle"
+FROM triangle t
+"""
+
+# 620
+"""
+SELECT c.id, c.movie, c.description, c.rating
+FROM cinema c
+WHERE MOD(c.id,2) = 1 AND c.description != "boring"
+ORDER BY c.rating DESC
+"""
+
+# 1179
+# SUM operation will ignore NULL
+"""
+SELECT d.id,
+       SUM(CASE WHEN d.month = 'Jan' THEN d.revenue ELSE NULL END) AS "Jan_Revenue",
+       SUM(CASE WHEN d.month = 'Feb' THEN d.revenue ELSE NULL END) AS "Feb_Revenue",
+       SUM(CASE WHEN d.month = 'Mar' THEN d.revenue ELSE NULL END) AS "Mar_Revenue",
+       SUM(CASE WHEN d.month = 'Apr' THEN d.revenue ELSE NULL END) AS "Apr_Revenue",
+       SUM(CASE WHEN d.month = 'May' THEN d.revenue ELSE NULL END) AS "May_Revenue",
+       SUM(CASE WHEN d.month = 'Jun' THEN d.revenue ELSE NULL END) AS "Jun_Revenue",
+       SUM(CASE WHEN d.month = 'Jul' THEN d.revenue ELSE NULL END) AS "Jul_Revenue",
+       SUM(CASE WHEN d.month = 'Aug' THEN d.revenue ELSE NULL END) AS "Aug_Revenue",
+       SUM(CASE WHEN d.month = 'Sep' THEN d.revenue ELSE NULL END) AS "Sep_Revenue",
+       SUM(CASE WHEN d.month = 'Oct' THEN d.revenue ELSE NULL END) AS "Oct_Revenue",
+       SUM(CASE WHEN d.month = 'Nov' THEN d.revenue ELSE NULL END) AS "Nov_Revenue",
+       SUM(CASE WHEN d.month = 'Dec' THEN d.revenue ELSE NULL END) AS "Dec_Revenue"
+FROM Department d
+GROUP BY d.id
+"""
+
+# 586
+"""
+SELECT o.customer_number
+FROM orders o
+GROUP BY o.customer_number
+HAVING COUNT(*) = (SELECT COUNT(*) AS "count_num"
+                   FROM orders o2
+                   GROUP BY o2.customer_number
+                   ORDER BY count_num DESC
+                   LIMIT 1)
+"""
+
+# 584
+#  WHEN SET c.referee_id,0 != 2, NULL will be ignore, since SQL thinks that the value is empty
+"""
+SELECT c.name
+FROM customer c
+WHERE IFNULL(c.referee_id,0) != 2
+"""
+
+# 1148
+"""
+SELECT DISTINCT v.author_id AS "id"
+FROM Views v
+WHERE v.author_id = v.viewer_id
+ORDER BY v.author_id
+"""
+
+#1082
+"""
+SELECT s.seller_id
+FROM Sales s
+GROUP BY s.seller_id
+HAVING SUM(s.price) = (
+    SELECT SUM(s2.price) AS "sum_price"
+    FROM Sales s2
+    GROUP BY s2.seller_id
+    ORDER BY sum_price DESC
+    LIMIT 1)
+"""
+
+# 627
+"""
+UPDATE salary
+SET sex = CASE WHEN salary.sex = 'm' THEN 'f'
+               ELSE 'm' END
+"""
+
+# 1050
+"""
+SELECT a.actor_id, a.director_id
+FROM ActorDirector a
+GROUP BY a.actor_id, a.director_id
+HAVING COUNT(*) >= 3
+"""
+
