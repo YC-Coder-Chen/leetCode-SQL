@@ -1109,3 +1109,63 @@ GROUP BY a.actor_id, a.director_id
 HAVING COUNT(*) >= 3
 """
 
+# 1173
+"""
+SELECT ROUND(COUNT(DISTINCT CASE WHEN d.order_date = d.customer_pref_delivery_date THEN d.delivery_id END)/COUNT(DISTINCT d.delivery_id)*100,2) AS "immediate_percentage"
+FROM Delivery d
+"""
+
+# 613
+"""
+SELECT MIN(p2.x - p.x) AS "shortest"
+FROM point p, point p2
+WHERE p.x < p2.x
+"""
+
+# 613
+# slightly faster
+"""
+SELECT MIN(p2.x - p.x) AS "shortest"
+FROM point p
+LEFT JOIN point p2
+ON p.x < p2.x
+"""
+
+# 595
+"""
+SELECT w.name, w.population, w.area
+FROM World w
+WHERE w.area > 3000000 OR w.population > 25000000
+"""
+
+# 511
+"""
+SELECT a.player_id, MIN(a.event_date) AS "first_login"
+FROM Activity a
+GROUP BY a.player_id
+"""
+
+# 1069
+"""
+SELECT s.product_id, SUM(s.quantity) AS "total_quantity"
+FROM Sales s
+GROUP BY s.product_id
+"""
+
+# 1068
+"""
+SELECT p.product_name, s.year, s.price
+FROM Sales s
+JOIN Product p
+ON s.product_id = p.product_id
+"""
+
+# 1068
+# faster by using distinct for joining
+"""
+SELECT p.product_name, s.year, s.price
+FROM Product p
+JOIN (SELECT DISTINCT *
+      FROM Sales) s
+ON p.product_id = s.product_id
+"""
