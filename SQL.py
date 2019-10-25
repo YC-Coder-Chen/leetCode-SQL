@@ -1,3 +1,49 @@
+# 1225
+# we first union Failed and Succeeded table together, then filter the specific date. 
+# Then we use @ function to find out the date when status changes, split the data into different status groups and groupby each status group period.
+"""
+SELECT grouped_table.status AS "period_state",
+       MIN(grouped_table.date) AS "start_date",
+       MAX(grouped_table.next_date) AS "end_date"
+FROM ( 
+    SELECT final_table.*, (@rm:=@rm + CASE WHEN @nr=@nr:=final_table.next_status THEN 0
+                                     ELSE 1 END) AS "chg_ind"
+    FROM (
+        SELECT clean1.*,
+               IFNULL(clean2.date,clean1.date) AS 'next_date', 
+               IFNULL(clean2.status, clean1.status) AS "next_status"
+        FROM (SELECT @rm:=0) temp,
+           (SELECT @nr:= (SELECT t2.status
+                            FROM (SELECT f.fail_date AS 'date', 'failed' AS "status"
+                                  FROM Failed f
+                                  UNION (SELECT s.success_date, 'succeeded' AS "status"
+                                         FROM Succeeded s)
+                                  ORDER BY date
+                                  LIMIT 1) t2)) t,
+            (
+            SELECT p1.*
+            FROM (     
+                SELECT f.fail_date AS 'date', 'failed' AS "status"
+                FROM Failed f
+                UNION (SELECT s.success_date, 'succeeded' AS "status"
+                       FROM Succeeded s)
+                ORDER BY date) p1
+            WHERE p1.date BETWEEN '2019-01-01' AND '2019-12-31' )clean1
+        LEFT JOIN (
+            SELECT p2.*
+            FROM (
+                SELECT f.fail_date AS 'date', 'failed' AS "status"
+                FROM Failed f
+                UNION (SELECT s.success_date, 'succeeded' AS "status"
+                       FROM Succeeded s)
+                ORDER BY date) p2
+            WHERE p2.date BETWEEN '2019-01-01' AND '2019-12-31') clean2
+        ON DATE_ADD(clean1.date, INTERVAL 1 DAY) = clean2.date AND clean1.status = clean2.status 
+        ) final_table
+    ) grouped_table
+GROUP BY grouped_table.chg_ind
+"""
+
 # 262
 """
 SELECT t.Request_at AS "Day", 
