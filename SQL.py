@@ -320,7 +320,7 @@ ON f.follower = f3.followee
 ORDER BY f.follower
 """
 
-# 117
+# 177
 """
 CREATE FUNCTION getNthHighestSalary(N INT) RETURNS INT
 BEGIN
