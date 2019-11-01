@@ -1215,3 +1215,17 @@ JOIN (SELECT DISTINCT *
       FROM Sales) s
 ON p.product_id = s.product_id
 """
+
+# 1241
+"""
+SELECT DISTINCT s.sub_id AS "post_id", IFNULL(count_table.number_of_comments,0) AS "number_of_comments"
+FROM Submissions s
+LEFT JOIN (
+    SELECT s2.parent_id, COUNT(DISTINCT s2.sub_id) AS "number_of_comments"
+    FROM Submissions s2
+    WHERE s2.parent_id IS NOT NULL
+    GROUP BY s2.parent_id ) count_table
+ON s.sub_id = count_table.parent_id
+WHERE s.parent_id IS NULL
+ORDER BY s.sub_id
+"""
