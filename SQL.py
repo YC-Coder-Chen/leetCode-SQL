@@ -1,49 +1,3 @@
-# 1225
-# we first union Failed and Succeeded table together, then filter the specific date. 
-# Then we use @ function to find out the date when status changes, split the data into different status groups and groupby each status group period.
-"""
-SELECT grouped_table.status AS "period_state",
-       MIN(grouped_table.date) AS "start_date",
-       MAX(grouped_table.next_date) AS "end_date"
-FROM ( 
-    SELECT final_table.*, (@rm:=@rm + CASE WHEN @nr=@nr:=final_table.next_status THEN 0
-                                     ELSE 1 END) AS "chg_ind"
-    FROM (
-        SELECT clean1.*,
-               IFNULL(clean2.date,clean1.date) AS 'next_date', 
-               IFNULL(clean2.status, clean1.status) AS "next_status"
-        FROM (SELECT @rm:=0) temp,
-           (SELECT @nr:= (SELECT t2.status
-                            FROM (SELECT f.fail_date AS 'date', 'failed' AS "status"
-                                  FROM Failed f
-                                  UNION (SELECT s.success_date, 'succeeded' AS "status"
-                                         FROM Succeeded s)
-                                  ORDER BY date
-                                  LIMIT 1) t2)) t,
-            (
-            SELECT p1.*
-            FROM (     
-                SELECT f.fail_date AS 'date', 'failed' AS "status"
-                FROM Failed f
-                UNION (SELECT s.success_date, 'succeeded' AS "status"
-                       FROM Succeeded s)
-                ORDER BY date) p1
-            WHERE p1.date BETWEEN '2019-01-01' AND '2019-12-31' )clean1
-        LEFT JOIN (
-            SELECT p2.*
-            FROM (
-                SELECT f.fail_date AS 'date', 'failed' AS "status"
-                FROM Failed f
-                UNION (SELECT s.success_date, 'succeeded' AS "status"
-                       FROM Succeeded s)
-                ORDER BY date) p2
-            WHERE p2.date BETWEEN '2019-01-01' AND '2019-12-31') clean2
-        ON DATE_ADD(clean1.date, INTERVAL 1 DAY) = clean2.date AND clean1.status = clean2.status 
-        ) final_table
-    ) grouped_table
-GROUP BY grouped_table.chg_ind
-"""
-
 # 262
 """
 SELECT t.Request_at AS "Day", 
@@ -89,6 +43,22 @@ ORDER BY e.Id ASC, e.Month DESC
 ;
 """
 
+# 579 Echo
+# Putting the and conditions in 'ON Clause' will be much slower
+"""
+SELECT E.Id AS 'id', E.Month AS 'month', SUM(IFNULL(E1.Salary,0)) AS 'Salary'
+FROM Employee E
+lEFT JOIN Employee E1
+ON E.Id = E1.Id and E1.Month+2 >= E.Month and E.Month >= E1.Month
+WHERE (E.Id, E.Month) NOT IN
+    (SELECT Id, MAX(Month) AS 'last_month'
+    FROM Employee
+    GROUP BY Id) 
+GROUP BY E.Id, E.Month
+ORDER BY E.Id ASC, E.Month DESC
+"""
+
+
 # 601
 """
 SELECT s1.id, s1.visit_date, s1.people
@@ -106,6 +76,42 @@ WHERE (SELECT COUNT(*)
        WHERE s1.id < s4.id + 3 AND s1.id > s4.id - 1 AND s4.people>=100) = 3 
 """
 
+# 601 Echo
+"""
+SELECT S.id,S.visit_date,S.people
+FROM stadium S
+LEFT JOIN (SELECT id,visit_date,people,IF(people>=100,1,0) AS 'check'
+FROM stadium) AS A
+ON S.id+2 = A.id
+LEFT JOIN (SELECT id,visit_date,people,IF(people>=100,1,0) AS 'check'
+FROM stadium) AS B
+ON S.id+1 = B.id
+lEFT JOIN (SELECT id,visit_date,people,IF(people>=100,1,0) AS 'check'
+FROM stadium) AS C
+ON S.id-1 = C.id
+LEFT JOIN (SELECT id,visit_date,people,IF(people>=100,1,0) AS 'check'
+FROM stadium) AS D
+ON S.id-2 = D.id
+WHERE ((S.people>=100) and A.check=1 and B.check=1)
+      OR ((S.people>=100) and B.check=1 and C.check=1)
+      OR ((S.people>=100) and C.check=1 and D.check=1)
+ORDER BY id
+"""
+
+# 601 Answer from wangyihuan24 https://leetcode.com/wanyihuang24/
+"""
+SELECT DISTINCT S1.*
+FROM stadium S1
+JOIN stadium S2
+JOIN stadium S3
+ON ((S1.id = S2.id - 1 AND S1.id = S3.id -2)
+OR (S3.id = S1.id - 1 AND S3.id = S2.id -2)
+OR (S3.id = S2.id - 1 AND S3.id = S1.id -2))
+WHERE S1.people >= 100
+AND S2.people >= 100
+AND S3.people >= 100
+ORDER BY S1.id;
+"""
 
 # 615
 """
@@ -124,6 +130,24 @@ FROM (
     FROM salary s
     JOIN employee e on s.employee_id = e.employee_id 
     GROUP BY e.department_id, DATE_FORMAT(s.pay_date,'%Y-%m') ) t1
+"""
+
+# 615 Echo
+"""
+SELECT date_format(S.pay_date,'%Y-%m') AS 'pay_month',
+       E.department_id,
+      ( CASE WHEN ROUND(AVG(S.amount),2)> A.avg THEN 'higher'
+             WHEN ROUND(AVG(S.amount),2)= A.avg THEN 'same'
+             ELSE 'lower' END) AS 'comparison'
+FROM salary S
+lEFT JOIN (SELECT date_format(pay_date,'%Y-%m') AS 'month',
+           ROUND(AVG(amount),2) AS 'avg' 
+           FROM Salary
+           GROUP BY date_format(pay_date,'%Y-%m')) AS A
+ON date_format(S.pay_date,'%Y-%m') = A.month
+LEFT JOIN employee E
+ON S.employee_id = E.employee_id
+GROUP BY date_format(S.pay_date,'%Y-%m'), E.department_id
 """
 
 
@@ -177,6 +201,35 @@ ORDER BY CASE sp3.platform WHEN "desktop" THEN 0
                            END
 """
 
+# 1127 Echo
+"""
+SELECT D.spend_date,D.platform,IFNULL(S2.total_amount,0) AS 'total_amount',
+       IFNULL(S2.total_users,0) AS 'total_users'
+FROM
+(SELECT * FROM
+    (SELECT DISTINCT spend_date FROM Spending) AS A
+    JOIN 
+    (SELECT 'desktop' AS 'platform'
+    UNION
+    SELECT 'mobile' AS 'platform'
+    UNION 
+    SELECT 'both' AS 'platform') AS P
+    ON 1) AS D
+lEFT JOIN 
+(SELECT S1.spend_date,S1.platform,
+       SUM(S1.t_amount) AS 'total_amount',
+       COUNT(S1.user_id) AS 'total_users'
+FROM 
+       (SELECT S.user_id, S.spend_date,
+               SUM(S.amount) AS 't_amount',
+               (CASE WHEN COUNT(S.platform)=2 THEN 'both'
+                ELSE S.platform END) AS 'platform'
+        FROM Spending S
+        GROUP BY user_id, spend_date) AS S1
+GROUP BY S1.spend_date, S1.platform) AS S2
+ON D.platform = S2.platform and D.spend_date = S2.spend_date
+"""
+
 # 571
 """
 SELECT agg2.Clean_median AS "median"
@@ -192,6 +245,20 @@ FROM (SELECT agg.cum_fre,
 WHERE agg2.cum_fre >=0.5
 ORDER BY agg2.Clean_median
 LIMIT 1
+"""
+
+# 571 Echo
+"""
+SELECT AVG(Number) 'median'
+FROM
+    (SELECT Number, Frequency, @cum:=@cum+Frequency AS 'cum'
+    FROM Numbers, (SELECT @cum:=0) tmp
+    ORDER BY Number) AS N_cum
+WHERE 
+    ((SELECT ROUND(SUM(Frequency)/2,0) FROM Numbers) 
+        between cum-Frequency+1 and cum)
+    OR ((SELECT ROUND(SUM(Frequency)/2+0.5,0) FROM Numbers)
+        between cum-Frequency+1 and cum)
 """
 
 # 1159
@@ -212,6 +279,23 @@ LEFT JOIN (
 ON u2.user_id = agg.seller_id
 ORDER BY u2.user_id
 """
+ 
+# 1159 faster if getting rank first. answer from ying61 https://leetcode.com/ying61/
+"""
+select u.user_id seller_id, case when u.favorite_brand = i.item_brand then "yes" else "no" end 2nd_item_fav_brand
+from Users u 
+left outer join
+(select seller_id, order_date, item_id,
+       # assume Orders table is in chronological order
+       case when @prev = seller_id then @rank := @rank + 1 else @rank := 1 end Rank,
+       @prev := seller_id partition_key
+FROM Orders
+join (select @rank := 0, @prev := 0) tmp
+order by seller_id, order_date asc) rt
+on u.user_id = rt.seller_id and rt.Rank = 2
+left outer join Items i
+on rt.item_id = i.item_id
+"""
 
 # 1097
 """
@@ -225,6 +309,33 @@ FROM ((SELECT a2.player_id, MIN(a2.event_date) AS "event_date"
 LEFT JOIN Activity a3 
 ON a3.player_id = a.player_id AND a3.event_date = DATE_ADD(a.event_date, INTERVAL 1 DAY)             
 GROUP BY a.event_date
+"""
+
+# 1097 Echo
+"""
+SELECT Install.install_dt, Install.installs, 
+       ROUND(IFNULL(Re.retention/Install.installs,0),2) As 'Day1_retention'
+FROM 
+    (SELECT  install_dt, COUNT(*) AS 'installs'
+    FROM Activity A
+    LEFT JOIN 
+        (SELECT player_id,min(event_date) AS 'install_dt'
+        FROM Activity
+        GROUP BY player_id) AS install_table
+    ON A.player_id = install_table.player_id 
+    WHERE A.event_date = install_table.install_dt
+    GROUP BY install_dt) AS Install    
+LEFT JOIN
+    (SELECT install_dt,
+           COUNT(*) AS 'retention'
+    FROM Activity A2
+    LEFT JOIN (SELECT player_id,min(event_date) AS 'install_dt'
+        FROM Activity
+        GROUP BY player_id) AS install_table
+    ON A2.player_id = install_table.player_id 
+    WHERE A2.event_date = adddate(install_dt,interval 1 day)
+    GROUP BY install_dt) AS Re
+ON Re.install_dt = Install.install_dt
 """
 
 # 569
@@ -245,6 +356,35 @@ FROM (
     FROM Employee e ) clean
 WHERE ABS(clean.small - clean.large) <= 1 
 ORDER BY clean.Company, clean.Salary
+"""
+
+# 569 Echo beats 99%
+"""
+SELECT Id, Company, Salary
+FROM
+    (SELECT Id, Company, Salary,
+           (CASE WHEN @prev = Company THEN @rank:= @rank+1 ELSE @rank:=1 END) Rank,
+           @prev:= Company patition_key
+    FROM Employee
+    JOIN (SELECT @rank:=0, @prev:=0) tmp
+    ORDER BY Company, Salary) AS Rank_table
+WHERE (Company,Rank) in 
+    (SELECT * FROM
+        ((SELECT Company,(COUNT(ID)+1)/2 AS 'Rank'
+         FROM Employee
+         GROUP BY Company
+         HAVING COUNT(Id)%2=1)
+        UNION
+        (SELECT Company,COUNT(ID)/2 AS 'Rank'
+         FROM Employee
+         GROUP BY Company
+         HAVING COUNT(Id)%2=0)
+        UNION
+        (SELECT Company,COUNT(ID)/2+1 AS 'Rank'
+         FROM Employee
+         GROUP BY Company
+         HAVING COUNT(Id)%2=0)) AS A)
+ORDER BY Company, Salary
 """
 
 # below is faster
@@ -307,6 +447,22 @@ WHERE clean2.player_id = (SELECT MIN(clean3.player_id)
                                 GROUP BY p.player_id, p.group_id) clean3
                          WHERE clean3.total_score = group_max.max_score AND clean3.group_id = clean2.group_id)
 ORDER BY group_max.group_id
+"""
+
+# 1194 Echo
+"""
+SELECT group_id,player_id
+FROM
+    (SELECT P.group_id, P.player_id, SUM(first_score) AS 'total_score'
+    FROM 
+        (SELECT first_player, first_score FROM Matches
+        UNION ALL
+        SELECT second_player,second_score FROM Matches) AS M
+    LEFT JOIN Players P
+    ON P.player_id = M.first_player
+    GROUP BY P.player_id
+    ORDER BY group_id, total_score DESC, player_id) final
+Group BY group_id
 """
 
 # 614
@@ -387,6 +543,20 @@ FROM (
     GROUP BY a.action_date ) clean
 """
 
+# 1132 Echo
+"""
+SELECT ROUND(100*AVG(Ratio),2) AS 'average_daily_percent'
+FROM 
+    (SELECT A.action_date, COUNT(R.remove_date)/COUNT(*) AS Ratio
+    FROM
+    (SElECT DISTINCT post_id,action_date
+    FROM Actions 
+    WHERE action='report' and extra='spam') AS A
+    LEFT JOIN Removals R
+    ON A.post_id = R.post_id
+    GROUP BY A.action_date) AS B
+"""
+
 # 180
 """
 SELECT DISTINCT l.Num AS "ConsecutiveNums"
@@ -453,6 +623,19 @@ WHERE b2.available_from < DATE_SUB('2019-06-23', INTERVAL 1 MONTH)
 AND IFNULL(sold.num_sold, 0) < 10
 """
 
+#1098 Echo
+"""
+SELECT book_id,name 
+FROM Books
+WHERE available_from < subdate('2019-06-23',interval 1 month)
+and book_id not in 
+    (SELECT book_id
+    FROM Orders
+    WHERE dispatch_date between subdate('2019-06-23',interval 1 year) and '2019-06-23'
+    GROUP BY book_id
+    HAVING SUM(quantity) >= 10)
+"""
+
 # 1107
 """
 SELECT first_login.login_date, COUNT(DISTINCT first_login.user_id) AS "user_count"
@@ -477,6 +660,19 @@ JOIN (SELECT a3.player_id, MIN(a3.event_date) AS "start_date"
       GROUP BY a3.player_id
       ) start_date_table
 ON a.event_date = start_date_table.start_date AND a.player_id = start_date_table.player_id
+"""
+# 550 Echo
+"""
+SELECT ROUND(
+    (SELECT COUNT(DISTINCT A1.player_id) 
+    FROM Activity A1
+    WHERE (A1.player_id,A1.event_date) 
+    in (SELECT A2.player_id, adddate(min(A2.event_date),interval 1 day) 
+        FROM Activity A2
+        GROUP BY A2.player_id))
+    /
+    (SELECT COUNT(DISTINCT A3.player_id) FROM Activity A3)
+    ,2) AS 'fraction'
 """
 
 # 580
@@ -549,6 +745,23 @@ FROM (
     FROM  insurance i ) condition_table
 WHERE condition_table.first_req !=0 AND condition_table.second_req = 0
 """
+
+# 585 Echo
+"""
+SELECT ROUND(SUM(TIV_2016),2) AS 'TIV_2016'
+FROM insurance
+WHERE TIV_2015 in (SELECT DISTINCT TIV_2015
+                  FROM insurance
+                  GROUP BY TIV_2015
+                  HAVING COUNT(*)>1)
+AND (LAT,LON) in (SELECT DISTINCT LAT,LON
+               FROM insurance
+               GROUP BY LAT,LON
+               HAVING COUNT(*)=1)
+
+"""
+
+
 # 1205
 """
 SELECT union_table.month, union_table.country, 
@@ -568,6 +781,25 @@ FROM (
            FROM Transactions t2)) union_table
 GROUP BY union_table.month, union_table.country
 HAVING approved_count + approved_amount + chargeback_count + chargeback_amount > 0
+"""
+
+# 1205 Echo 
+# Similar to David's answer
+"""
+SELECT date_format(TT.trans_date,'%Y-%m') AS 'month',
+	country,SUM(state='approved') AS 'approved_count',
+	SUM(IF(state='approved',amount,0)) AS 'approved_amount',
+	SUM(state='charged') AS 'chargeback_count',
+	SUM(IF(state='charged',amount,0)) AS 'chargeback_amount'
+FROM
+	(SELECT * FROM Transactions
+	UNION ALL
+	(SELECT trans_id,country,'charged' AS 'state',amount,C.trans_date
+ 	FROM Chargebacks C
+ 	LEFT JOIN Transactions T
+ 	ON C.trans_id = T.id)) AS TT #total
+GROUP BY date_format(TT.trans_date,'%Y-%m'),TT.country
+HAVING SUM(state='approved')>0 or SUM(state='charged')>0
 """
 
 # 1158
@@ -602,6 +834,18 @@ WHERE (d.customer_id, d.order_date) IN (SELECT d2.customer_id, MIN(d2.order_date
 									    GROUP BY d2.customer_id)
 """
 
+#1174 Echo
+"""
+SELECT ROUND(100*SUM(D.order_date=D.customer_pref_delivery_date)/COUNT(*),2) 
+AS 'immediate_percentage'
+FROM Delivery D
+WHERE (customer_id,order_date) in 
+    (SElECT customer_id,min(order_date)
+    FROM Delivery
+    GROUP BY customer_id)
+"""
+
+
 # 612
 # no aggregate function allowed during features created by select
 """
@@ -613,6 +857,13 @@ ORDER BY shortest ASC
 LIMIT 1
 """
 
+# 612 Echo
+"""
+SELECT ROUND(MIN(SQRT(pow(p1.x-p2.x,2)+pow(p1.y-p2.y,2))),2) AS 'shortest'
+FROM point_2d p1, point_2d p2
+WHERE not (p1.x = p2.x and p1.y = p2.y)
+"""
+
 # 626
 """
 SELECT s.id, IFNULL(CASE WHEN MOD(s.id,2) = 1 THEN s2.student
@@ -622,6 +873,16 @@ FROM seat s
 LEFT JOIN seat s2 on s.id + 1 = s2.id 
 LEFT JOIN seat s3 on s.id - 1 = s3.id
 ORDER BY s.id ASC
+"""
+
+# 626 Echo
+"""
+SELECT S1.id,
+IFNULL((CASE
+ WHEN S1.id%2=1 THEN (SELECT student FROM seat S2 WHERE S2.id=S1.id+1)
+ WHEN S1.id%2=0 THEN (SELECT student FROM seat S3 WHERE S3.id=S1.id-1)
+ END),S1.student) AS 'student'
+FROM seat S1
 """
 
 # 1193
@@ -675,6 +936,39 @@ ON p3.product_id = price_table.product_id
 ORDER BY price DESC
 """
 
+# 1164 Echo
+"""
+SELECT P.product_id,IFNULL(A.price,10) AS 'price'
+FROM (SELECT DISTINCT product_id FROM Products) AS P
+LEFT JOIN 
+    (SELECT product_id,new_price AS 'price'
+        FROM Products P
+        WHERE (product_id,change_date) IN
+            (SELECT product_id,MAX(change_date) 
+            FROM Products
+            WHERE change_date <= '2019-08-16'
+            GROUP BY product_id)) AS A
+ON P.product_id=A.product_id
+"""
+
+# OR
+"""
+SELECT product_id,new_price AS 'price'
+FROM Products P
+WHERE (product_id,change_date) IN
+    (SELECT product_id,MAX(change_date) 
+    FROM Products
+    WHERE change_date <= '2019-08-16'
+    GROUP BY product_id)
+UNION 
+SELECT product_id,10 
+FROM (SELECT DISTINCT product_id FROM Products) AS A
+WHERE product_id not in 
+    (SELECT product_id
+    FROM Products
+    WHERE change_date <= '2019-08-16')
+"""
+
 # 608
 """
 SELECT count_table.id, (CASE WHEN count_table.p_id IS NULL THEN "Root"
@@ -703,6 +997,20 @@ LEFT JOIN (
 ON t2.id = parent_table.p_id
 """
 
+# 608 Echo
+"""
+SELECT DISTINCT id,
+(CASE WHEN p_id is null THEN 'Root'
+ WHEN p_id is not null and c_id is not null THEN 'Inner'
+ ELSE 'Leaf'
+ END) AS 'Type'
+FROM (
+    SELECT t1.id,t1.p_id,t2.p_id AS 'c_id'
+    FROM tree t1
+    LEFT JOIN tree t2
+    ON t1.id = t2.p_id) AS A
+"""
+
 # 1112
 """
 SELECT e2.student_id, MIN(e2.course_id) AS "course_id", e2.grade
@@ -724,6 +1032,15 @@ JOIN (
     HAVING num_reporters >= 5) reporters_table
 ON e2.Id = reporters_table.ManagerId
 """
+# 570 Echo
+"""
+SELECT E2.Name 
+FROM Employee E1
+JOIN Employee E2
+ON E1.ManagerId = E2.Id
+GROUP BY E2.Id
+HAVING COUNT(*)>=5 
+"""
 
 # 534
 """
@@ -742,6 +1059,15 @@ WHERE a.player_id = a2.player_id AND a.event_date >= a2.event_date
 GROUP BY a.player_id, a.event_date
 """
 
+# 534 Echo
+"""
+SELECT A1.player_id, A1.event_date, SUM(A2.games_played) AS 'games_played_so_far'
+FROM Activity A1
+LEFT JOIN Activity A2
+ON A1.player_id = A2.player_id and A1.event_date >= A2.event_date
+GROUP BY A1.player_id, A1.event_date
+"""
+
 # 1204
 """
 SELECT cum_table.person_name
@@ -751,6 +1077,21 @@ FROM (
     ORDER BY q.turn ) cum_table
 WHERE cum_table.cum_weight <= 1000
 ORDER BY cum_table.cum_weight DESC
+LIMIT 1
+"""
+# 1204 Echo
+"""
+SELECT D.person_name
+FROM
+    (SELECT A.turn, SUM(B.weight) AS cum_weight
+    FROM Queue A
+    LEFT JOIN Queue B
+    ON A.turn >= B.turn
+    GROUP BY A.turn) AS C
+LEFT JOIN Queue D
+ON C.turn = D.turn
+WHERE cum_weight <= 1000
+ORDER BY cum_weight DESC
 LIMIT 1
 """
 
@@ -768,6 +1109,16 @@ WHERE join_table.num_product = (SELECT COUNT(DISTINCT p2.product_key)
 ORDER BY join_table.customer_id ASC
 """
 
+# 1045 Echo
+"""
+SELECT customer_id
+FROM (SELECT *
+      FROM Customer
+      WHERE product_key in (SELECT * FROM Product)) AS A
+GROUP BY customer_id
+HAVING COUNT(DISTINCT product_key) = (SELECT COUNT(product_key) FROM Product)
+"""
+
 # 1126
 """
 SELECT agg.business_id
@@ -782,6 +1133,33 @@ FROM (
     WHERE e2.occurences> sum_table.avg_ocur
     GROUP BY e2.business_id) agg
 WHERE agg.count_above_avg > 1
+"""
+
+# 1126 Echo
+"""
+SELECT business_id
+FROM
+    (SELECT business_id,IF(E.occurences>A.avg_o,1,0) AS 'beat_avg'
+    FROM Events E
+    LEFT JOIN  
+        (SELECT event_type, AVG(occurences) AS 'avg_o'
+        FROM Events
+        GROUP BY event_type) AS A
+    On E.event_type = A.event_type) AS B
+GROUP BY business_id
+HAVING SUM(beat_avg) > 1 
+"""
+# OR
+"""
+SELECT business_id
+FROM Events E
+LEFT JOIN  
+    (SELECT event_type, AVG(occurences) AS 'avg_o'
+    FROM Events
+    GROUP BY event_type) AS A
+On E.event_type = A.event_type
+GROUP BY E.business_id
+HAVING SUM(IF(E.occurences> A.avg_o,1,0)) >1
 """
 
 # 1077
@@ -838,7 +1216,11 @@ LEFT JOIN (SELECT MIN(p2.Id) AS 'Id', p2.Email
 ON p.Id = group_email.Id
 WHERE group_email.Email IS NULL
 """
-
+# 196 Echo
+"""
+DELETE FROM Person WHERE Id NOT IN 
+(SELECT * FROM (SELECT MIN(Id) FROM Person GROUP By Email)as A)
+"""
 
 # 197
 """
@@ -848,6 +1230,15 @@ LEFT JOIN Weather w2
 ON DATE_SUB(w.RecordDate, INTERVAL 1 DAY) = w2.RecordDate
 WHERE w.Temperature > w2.Temperature
 """
+# 197 Echo
+"""
+SELECT A.Id
+From Weather A Left Join  
+Weather B
+On subdate(A.RecordDate,1) = B.RecordDate
+Where A.Temperature > B.Temperature
+"""
+
 
 # 596
 """
@@ -857,6 +1248,14 @@ FROM (
     FROM courses c
     GROUP BY c.class
     HAVING num_stu >= 5) stu_count
+"""
+
+# 596 Echo
+"""
+SELECT class
+FROM courses
+GROUP BY class
+HAVING count(distinct student) >= 5
 """
 
 # 619
@@ -896,6 +1295,14 @@ FROM Queries q
 GROUP BY q.query_name
 """
 
+# 1211 Echo
+"""
+SELECT query_name,ROUND(AVG(rating/position),2) AS quality, 
+ROUND(SUM(IF(rating<3,1,0))/COUNT(*)*100,2) AS poor_query_percentage 
+FROM Queries
+GROUP BY query_name
+"""
+
 # 1083
 """
 SELECT s.buyer_id
@@ -924,6 +1331,19 @@ AND s2.buyer_id IN (
     LEFT JOIN Product p2
     ON s3.product_id = p2.product_id
     WHERE p2.product_name = 'S8')
+"""
+
+# 1083 Echo
+"""
+SELECT DISTINCT buyer_id
+FROM Sales S
+LEFT JOIN Product P
+On S.product_id = P.product_id
+WHERE P.product_name = 'S8'
+and buyer_id Not in (SELECT buyer_id FROM Sales S1
+                    LEFT JOIN Product P1
+                    ON S1.product_id = P1.product_id
+                    WHERE P1.product_name='iPhone') 
 """
 
 # 181
@@ -956,6 +1376,16 @@ WHERE s.product_id IN (SELECT s2.product_id
                       FROM Sales s3
                       WHERE s3.sale_date NOT BETWEEN '2019-01-01' AND '2019-03-31')
 """
+# 1084 Echo
+"""
+SELECT Sales.product_id, Product.product_name
+FROM Sales
+LEFT JOIN Product
+ON Sales.product_id = Product.product_id
+GROUP BY Sales.product_id
+HAVING min(sale_date) >= '2019-01-01' and max(sale_date) <= '2019-03-31'
+"""
+
 
 # 1076
 # use having to select rows with max values [return multi-rows]
@@ -969,6 +1399,18 @@ HAVING COUNT(DISTINCT employee_id) = (
         SELECT p2.project_id, COUNT(DISTINCT p2.employee_id) AS "num_count"
         FROM Project p2
         GROUP BY p2.project_id) count_table)
+"""
+
+# 1076 Echo
+"""
+SELECT B.project_id
+FROM Project B
+GROUP BY B.project_id
+HAVING COUNT(B.employee_id) = (SELECT COUNT(employee_id)  as cnt
+                            FROM Project  
+                            GROUP BY project_id
+                            ORDER BY cnt DESC
+                            LIMIT 1)
 """
 
 # 1141
@@ -997,6 +1439,16 @@ WHERE (a.player_id, a.event_date) IN (
     GROUP BY a2.player_id)
 """
 
+# 512 Echo
+"""
+SELECT A.player_id,A.device_id
+FROM Activity A 
+INNER JOIN (SELECT player_id,MIN(event_date) as event_date_1 
+            FROM Activity Group By player_id) AS B
+ON A.player_id = B.player_id and A.event_date = B.event_date_1
+
+"""
+
 # 182
 """
 SELECT DISTINCT p1.Email
@@ -1011,6 +1463,17 @@ SELECT p1.Email
 FROM Person p1
 GROUP BY p1.Email
 HAVING COUNT(p1.Id) > 1
+"""
+
+# 182 Echo
+# using group by and where
+"""
+Select Email
+From (
+    Select Email,Count(Email) as cnt
+    From Person
+    Group By Email) AS A
+Where cnt > 1
 """
 
 # 1075
@@ -1055,6 +1518,14 @@ ON c.seat_id - 1 = c3.seat_id
 WHERE (c.free = 1 AND c2.free = 1) OR (c.free = 1 AND c3.free = 1)
 """
 
+# 603 Echo
+"""
+SELECT DISTINCT A.seat_id
+FROM cinema A, cinema B
+WHERE (A.seat_id +1 = B.seat_id and A.free * B.free =1) 
+or (A.seat_id -1 = B.seat_id and A.free * B.free =1 )
+"""
+
 # 577
 """
 SELECT e.name, b.bonus
@@ -1066,9 +1537,16 @@ WHERE IFNULL(b.bonus,0) < 1000
 
 # 610
 """
-SELECT t.x, t.y, t.z, 
+SELECT t.x, t.y, t.z,  
        CASE WHEN (t.x + t.y > t.z) AND (t.x + t.z > t.y) AND (t.y + t.z > t.x) THEN "Yes" ELSE "No" END AS "triangle"
 FROM triangle t
+"""
+
+# 610 Echo, answer from https://leetcode.com/gdianov/ 
+"""
+select *, 
+    IF(x + y > z AND x + z > y AND y + z > x, 'Yes', 'No') as triangle 
+    from triangle;
 """
 
 # 620
@@ -1111,6 +1589,17 @@ HAVING COUNT(*) = (SELECT COUNT(*) AS "count_num"
                    LIMIT 1)
 """
 
+# 586 Echo
+"""
+SELECT customer_number 
+FROM   (SELECT customer_number, 
+               Count(order_number) AS cnt 
+        FROM   orders 
+        GROUP  BY customer_number) AS A 
+ORDER  BY cnt DESC 
+LIMIT  1 
+"""
+
 # 584
 #  WHEN SET c.referee_id,0 != 2, NULL will be ignore, since SQL thinks that the value is empty
 """
@@ -1147,6 +1636,12 @@ SET sex = CASE WHEN salary.sex = 'm' THEN 'f'
                ELSE 'm' END
 """
 
+# 627 Echo
+"""
+UPDATE salary
+SET SEX = IF(sex='m','f','m')
+"""
+
 # 1050
 """
 SELECT a.actor_id, a.director_id
@@ -1175,6 +1670,23 @@ SELECT MIN(p2.x - p.x) AS "shortest"
 FROM point p
 LEFT JOIN point p2
 ON p.x < p2.x
+"""
+
+# 613 Echo
+"""
+SELECT min(distance) AS 'shortest'
+FROM point A
+LEFT JOIN (SELECT B.x, MIN(ABS( B.x-C.x )) as distance
+           FROM point B, point C
+           WHERE B.x <> C.x) AS D
+ON A.x = D.x
+
+*/ Method 2
+SELECT min(abs(A.x-B.x)) AS 'shortest'
+FROM point A, point B
+WHERE A.x <> B.x   
+*/
+
 """
 
 # 595
@@ -1216,16 +1728,22 @@ JOIN (SELECT DISTINCT *
 ON p.product_id = s.product_id
 """
 
-# 1241
+# 1225 Echo
 """
-SELECT DISTINCT s.sub_id AS "post_id", IFNULL(count_table.number_of_comments,0) AS "number_of_comments"
-FROM Submissions s
-LEFT JOIN (
-    SELECT s2.parent_id, COUNT(DISTINCT s2.sub_id) AS "number_of_comments"
-    FROM Submissions s2
-    WHERE s2.parent_id IS NOT NULL
-    GROUP BY s2.parent_id ) count_table
-ON s.sub_id = count_table.parent_id
-WHERE s.parent_id IS NULL
-ORDER BY s.sub_id
+(SELECT 'succeeded' AS 'period_state', Min(success_date) AS 'start_date',
+        Max(success_date) AS 'end_date'
+FROM
+    (SELECT S1.success_date, (@row_number1:=@row_number1+1) AS 'row1'
+    FROM Succeeded S1, (SELECT @row_number1:=0) a
+    WHERE success_date between '2019-01-01' and '2019-12-31') AS S2
+GROUP BY SUBDATE(success_date,interval row1 day))
+UNION
+(SELECT 'failed' AS 'period_state', Min(fail_date) AS 'fail_date',
+        Max(fail_date) AS 'end_date'
+FROM
+    (SELECT F1.fail_date, (@row_number2:=@row_number2+1) AS 'row2'
+    FROM Failed F1,(SELECT @row_number2:=0) a
+    WHERE fail_date between '2019-01-01' and '2019-12-31') AS F2
+GROUP BY SUBDATE(fail_date,interval row2 day))
+ORDER BY start_date
 """
