@@ -1807,3 +1807,1143 @@ ON s.sub_id = count_table.parent_id
 WHERE s.parent_id IS NULL
 ORDER BY s.sub_id
 """
+
+# 1251
+"""
+SELECT p.product_id, ROUND(SUM(p.price * u.units)/SUM(u.units),2) AS 'average_price'
+FROM UnitsSold u
+LEFT JOIN Prices p
+ON u.product_id = p.product_id
+AND u.purchase_date between p.start_date and p.end_date
+GROUP BY p.product_id
+"""
+
+# 1264
+"""
+SELECT DISTINCT l.page_id AS 'recommended_page'
+FROM Friendship f
+JOIN Likes l
+ON CASE WHEN f.user1_id = 1 THEN f.user2_id
+        WHEN f.user2_id = 1 THEN f.user1_id
+   END = l.user_id
+AND l.page_id NOT IN (SELECT l2.page_id FROM Likes l2 WHERE l2.user_id = 1)
+"""
+
+# 1270
+"""
+SELECT e3.Employee_id
+FROM Employees e1
+LEFT JOIN Employees e2
+ON e1.Employee_id = e2.manager_id
+LEFT JOIN Employees e3
+ON e2.Employee_id = e3.manager_id
+WHERE e1.manager_id = 1
+AND e3.Employee_id != 1
+"""
+
+# 1280
+"""
+SELECT s.student_id, s.student_name, sj.subject_name, IFNULL(counts.exam_count, 0) AS 'attended_exams'
+FROM Students s
+LEFT JOIN Subjects sj
+ON 1=1
+LEFT JOIN (
+    SELECT e.student_id, e.subject_name, count(1) AS 'exam_count'
+    FROM Examinations e
+    GROUP BY e.student_id, e.subject_name
+    ) counts
+ON s.student_id = counts.student_id
+AND sj.subject_name = counts.subject_name
+WHERE sj.subject_name IS NOT NULL
+ORDER BY s.student_id ASC, sj.subject_name ASC
+"""
+
+# 1285
+"""
+SELECT MIN(g.log_id) AS 'start_id', MAX(g.log_id) AS 'end_id'
+FROM (
+    SELECT l.log_id, (l.log_id - ROW_NUMBER() OVER()) AS group_id
+    FROM Logs l
+    ) g
+GROUP BY g.group_id
+ORDER BY start_id ASC
+"""
+
+# 1294
+"""
+SELECT avg_table.country_name
+      ,CASE WHEN avg_table.avg_temp <= 15 THEN 'Cold'
+            WHEN avg_table.avg_temp >= 25 THEN 'Hot'
+            ELSE 'Warm'
+       END AS 'weather_type'
+FROM (
+    SELECT c.country_name
+           ,AVG(w.weather_state) AS 'avg_temp'
+    FROM Countries c
+    LEFT JOIN Weather w
+    ON c.country_id = w.country_id
+    WHERE MONTH(w.day) = 11
+    AND YEAR(w.day) = 2019
+    GROUP BY c.country_name
+    ) avg_table
+"""
+
+# 1303
+"""
+SELECT e2.employee_id, size.team_size
+FROM Employee e2
+LEFT JOIN (
+    SELECT e.team_id, count(1) AS 'team_size'
+    FROM Employee e
+    GROUP BY e.team_id
+    ) size
+ON e2.team_id = size.team_id
+"""
+
+# 1308
+"""
+SELECT s.gender, s.day, SUM(s.score_points) OVER(PARTITION BY s.gender ORDER BY s.day ASC) AS 'total'
+FROM Scores s
+"""
+
+# 1321
+"""
+SELECT c.visited_on, SUM(c2.amount) AS 'amount', ROUND(SUM(c2.amount)/7, 2) AS 'average_amount'
+FROM (SELECT Customer.visited_on, SUM(Customer.amount) AS 'amount'
+      FROM Customer
+      GROUP BY Customer.visited_on
+      ) c
+INNER JOIN Customer c2
+ON c.visited_on <= DATE_ADD(c2.visited_on, INTERVAL 6 DAY)
+AND c.visited_on >= c2.visited_on
+AND c.visited_on >= DATE_ADD((SELECT MIN(Customer.visited_on) FROM Customer), INTERVAL 6 DAY)
+GROUP BY c.visited_on
+"""
+
+# 1322
+"""
+SELECT a.ad_id, ROUND(CASE WHEN SUM(CASE WHEN a.action in ('Clicked', 'Viewed') THEN 1 ELSE 0 END) = 0 THEN 0
+                     ELSE SUM(CASE WHEN a.action = 'Clicked' THEN 1 ELSE 0 END)/ SUM(CASE WHEN a.action in ('Clicked', 'Viewed') THEN 1 ELSE 0 END)
+                     END * 100, 2) AS 'ctr'
+FROM Ads a
+GROUP BY a.ad_id
+ORDER BY ctr DESC, a.ad_id ASC
+"""
+
+# 1327
+"""
+SELECT p.product_name, SUM(o.unit) AS 'unit'
+FROM Products p
+LEFT JOIN Orders o
+ON p.product_id = o.product_id
+WHERE MONTH(o.order_date) = 2 AND YEAR(o.order_date) = 2020
+GROUP BY p.product_name
+HAVING unit >= 100
+"""
+
+# 1336
+"""
+WITH visits_table AS (
+
+    SELECT g.transaction_count, COUNT(g.user_id) AS 'visits_count'
+    FROM (
+        SELECT v.user_id, v.visit_date, SUM(CASE WHEN t.amount IS NULL THEN 0
+                                            ELSE 1 END) AS 'transaction_count'
+        FROM Visits v
+        LEFT JOIN Transactions t
+        ON v.user_id = t.user_id
+        AND v.visit_date = t.transaction_date
+        GROUP BY v.user_id, v.visit_date
+        ) g
+    GROUP BY g.transaction_count
+    ORDER BY g.transaction_count ASC 
+    ),
+
+cte_count AS (
+    WITH RECURSIVE rec_cte_count AS (
+        SELECT 0 AS counts
+        UNION ALL 
+        SELECT counts + 1 AS counts
+        FROM rec_cte_count
+        WHERE counts <= (SELECT MAX(transaction_count) FROM visits_table)
+        )
+    SELECT counts FROM rec_cte_count
+    )
+
+
+select * from cte_count
+"""
+
+# 1341
+"""SELECT result1.name AS 'results'
+FROM (
+    SELECT u.name, COUNT(1) AS 'user_counts'
+    FROM Movie_Rating m
+    LEFT JOIN Users u
+    ON m.user_id = u.user_id
+    GROUP BY u.name
+    ORDER BY user_counts DESC, u.name ASC
+    LIMIT 1
+    ) result1
+
+UNION ALL
+
+SELECT result2.title AS 'results'
+FROM (
+    SELECT m3.title, AVG(m2.rating) AS 'movie_rates'
+    FROM Movie_Rating m2
+    LEFT JOIN Movies m3
+    ON m2.movie_id = m3.movie_id
+    WHERE MONTH(m2.created_at) = 2 AND YEAR(m2.created_at) = 2020
+    GROUP BY m3.title
+    ORDER BY movie_rates DESC, m3.title ASC
+    LIMIT 1
+    ) result2
+
+"""
+
+# 1350
+"""
+SELECT s.id, s.name 
+FROM Students s
+LEFT JOIN Departments d on s.department_id = d.id
+WHERE d.name is null
+"""
+
+# 1355
+"""
+WITH activity_count AS (
+    SELECT f.activity, COUNT(1) AS 'act_counts'
+    FROM Friends f
+    GROUP BY f.activity
+)
+
+
+SELECT a.activity
+FROM activity_count a
+WHERE a.act_counts != (SELECT MAX(act_counts) FROM activity_count)
+AND a.act_counts != (SELECT MIN(act_counts) FROM activity_count)
+"""
+
+# 1364
+"""
+SELECT i.invoice_id
+      ,c2.customer_name
+      ,i.price
+      ,SUM(CASE WHEN c3.contact_email IS NULL THEN 0
+           ELSE 1 END) AS 'contacts_cnt'
+      ,SUM(CASE WHEN c4.email IS NULL THEN 0
+           ELSE 1 END) AS 'trusted_contacts_cnt'
+      
+      
+FROM Invoices i
+
+-- get client name
+LEFT JOIN Customers c2
+ON c2.customer_id = i.user_id
+
+
+-- get contacts
+LEFT JOIN Contacts c3
+ON i.user_id = c3.user_id
+LEFT JOIN Customers c4
+ON c4.email = c3.contact_email
+
+GROUP BY i.invoice_id, c2.customer_name, i.price
+ORDER BY i.invoice_id ASC
+"""
+
+# 1369
+"""
+WITH order_table AS (
+    SELECT u.username, u.activity, u.startDate, u.endDate
+    ,ROW_NUMBER() OVER(PARTITION BY u.username ORDER BY u.startDate DESC) AS 'order'
+    ,COUNT(1) OVER(PARTITION BY u.username) AS 'act_count'
+    FROM UserActivity u
+    )
+
+SELECT o.username, o.activity, o.startDate, o.endDate
+FROM order_table o
+WHERE o.order = 2 OR o.act_count = 1
+"""
+
+# 1378
+"""
+SELECT ei.unique_id, e.name
+FROM Employees e
+LEFT JOIN EmployeeUNI ei
+ON e.id = ei.id
+"""
+
+# 1384
+"""
+WITH table2018 AS (
+    SELECT s.product_id
+          ,p.product_name
+          ,'2018' AS 'report_year'
+          ,(DATEDIFF(LEAST(s.period_end, '2018-12-31') , GREATEST(s.period_start, '2018-01-01')) + 1) * s.average_daily_sales AS 'total_amount'
+    FROM Sales s
+    LEFT JOIN Product p
+    ON s.product_id = p.product_id
+    WHERE YEAR(s.period_start) <= 2018 AND YEAR(s.period_end) >= 2018
+    ),
+    
+    table2019 AS (
+    SELECT s.product_id
+          ,p.product_name
+          ,'2019' AS 'report_year'
+          ,(DATEDIFF(LEAST(s.period_end, '2019-12-31') , GREATEST(s.period_start, '2019-01-01')) + 1) * s.average_daily_sales AS 'total_amount'
+    FROM Sales s
+    LEFT JOIN Product p
+    ON s.product_id = p.product_id
+    WHERE YEAR(s.period_start) <= 2019 AND YEAR(s.period_end) >= 2019
+    ),
+    
+    table2020 AS (
+    SELECT s.product_id
+          ,p.product_name
+          ,'2020' AS 'report_year'
+          ,(DATEDIFF(LEAST(s.period_end, '2020-12-31') , GREATEST(s.period_start, '2020-01-01')) + 1) * s.average_daily_sales AS 'total_amount'
+    FROM Sales s
+    LEFT JOIN Product p
+    ON s.product_id = p.product_id
+    WHERE YEAR(s.period_start) <= 2020 AND YEAR(s.period_end) >= 2020
+    )
+
+
+SELECT * 
+FROM table2018 
+UNION ALL (SELECT * FROM table2019)
+UNION ALL (SELECT * FROM table2020)
+ORDER BY product_id ASC, report_year ASC
+"""
+
+# 1393
+"""
+SELECT s.stock_name
+      ,SUM(CASE WHEN s.operation = 'Buy' THEN -1 * s.price
+           ELSE s.price END) AS 'capital_gain_loss'
+FROM Stocks s
+GROUP BY s.stock_name
+"""
+
+# 1398
+"""
+SELECT final.customer_id, final.customer_name
+FROM (
+    SELECT o.customer_id, c.customer_name
+          ,SUM(CASE WHEN o.product_name = 'A' THEN 1 ELSE 0 END) AS 'a_counts'
+          ,SUM(CASE WHEN o.product_name = 'B' THEN 1 ELSE 0 END) AS 'b_counts'
+          ,SUM(CASE WHEN o.product_name = 'C' THEN 1 ELSE 0 END) AS 'c_counts'
+    FROM Orders o
+    LEFT JOIN Customers c
+    ON o.customer_id = c.customer_id
+    GROUP BY o.customer_id, c.customer_name
+    ) final
+WHERE final.a_counts = 1 AND final.b_counts = 1 AND final.c_counts = 0
+"""
+
+# 1407
+"""
+SELECT u.name, IFNULL(SUM(r.distance), 0) AS 'travelled_distance'
+FROM Users u
+LEFT JOIN Rides r
+ON r.user_id = u.id
+GROUP BY u.name
+ORDER BY travelled_distance DESC, u.name ASC
+"""
+
+# 1412
+"""
+WITH min_max AS (
+    SELECT e.exam_id
+          ,MIN(e.score) AS 'min_score'
+          ,MAX(e.score) AS 'max_score'
+    FROM Exam e
+    GROUP BY e.exam_id
+    ),
+    
+    not_quite AS (
+        SELECT mm.exam_id, e2.student_id
+        FROM min_max mm
+        LEFT JOIN Exam e2
+        ON mm.exam_id = e2.exam_id
+        WHERE e2.score = mm.min_score OR e2.score = mm.max_score
+    )
+    
+SELECT *
+FROM Student s
+WHERE s.student_id IN (SELECT student_id FROM Exam)
+AND s.student_id NOT IN (SELECT student_id FROM not_quite)
+"""
+
+# 1421
+"""
+SELECT q.id, q.year, IFNULL(n.NPV, 0) AS 'npv'
+FROM Queries q
+LEFT JOIN NPV n
+ON q.id = n.id AND q.year = n.year
+"""
+
+# 1435
+"""
+WITH bins AS (
+    SELECT "[0-5>" AS bin
+    UNION ALL SELECT "[5-10>" AS bin
+    UNION ALL SELECT "[10-15>" AS bin
+    UNION ALL SELECT "15 or more" AS bin
+)
+
+SELECT bins.bin, IFNULL(bin_result.total, 0) AS 'total'
+FROM bins
+LEFT JOIN (
+    SELECT b.bin, COUNT(1) AS "total"
+    FROM (
+        SELECT CASE WHEN s.duration < 5 * 60 THEN "[0-5>"
+                    WHEN s.duration < 10 * 60 THEN "[5-10>"
+                    WHEN s.duration < 15 * 60 THEN "[10-15>"
+                    ELSE "15 or more" END AS 'bin'
+        FROM Sessions s
+        ) b
+    GROUP BY b.bin
+    ) bin_result
+ON bins.bin = bin_result.bin
+"""
+
+# 1440
+"""
+SELECT e.left_operand
+      ,e.operator
+      ,e.right_operand
+      ,CASE WHEN e.operator = '>' THEN (CASE WHEN v1.value > v2.value THEN 'true' ELSE 'false' END)
+           WHEN e.operator = '=' THEN (CASE WHEN v1.value = v2.value THEN 'true' ELSE 'false' END)
+           ELSE (CASE WHEN v1.value < v2.value THEN 'true' ELSE 'false' END)
+      END AS 'value'
+
+      
+FROM Expressions e
+LEFT JOIN `Variables` v1
+ON e.left_operand = v1.name
+LEFT JOIN `Variables` v2
+ON e.right_operand = v2.name
+"""
+
+# 1445
+"""
+WITH apple_table AS (
+    SELECT s.sale_date, s.sold_num
+    FROM Sales s
+    WHERE s.fruit = 'apples'
+), orange_table AS (
+    SELECT s2.sale_date, s2.sold_num
+    FROM Sales s2
+    WHERE s2.fruit = 'oranges'
+)
+
+
+SELECT IFNULL(a.sale_date, o.sale_date) AS 'sale_date'
+      ,IFNULL(a.sold_num, 0) - IFNULL(o.sold_num, 0) AS 'diff'
+FROM apple_table a
+JOIN orange_table o
+ON a.sale_date = o.sale_date
+ORDER BY sale_date ASC
+"""
+
+# 1454
+"""
+SELECT DISTINCT count_table.id, a.name
+FROM (
+    SELECT l.id, COUNT(DISTINCT l2.login_date) AS 'counts'
+    FROM Logins l
+    LEFT JOIN Logins l2
+    ON DATEDIFF(l.login_date, l2.login_date) < 5
+    AND l.login_date >= l2.login_date
+    AND l.id = l2.id
+    GROUP BY l.id, l.login_date
+    ) count_table
+LEFT JOIN Accounts a
+ON a.id = count_table.id
+WHERE count_table.counts >= 5
+"""
+
+# 1459
+"""
+SELECT p.id AS 'p1', p1.id AS 'p2', ABS(p1.x_value - p.x_value) * ABS(p1.y_value - p.y_value) AS 'area'
+FROM Points p
+LEFT JOIN Points p1
+ON p.x_value != p1.x_value
+AND p.y_value != p1.y_value
+AND p.id < p1.id
+HAVING area > 0
+ORDER BY area DESC, p1 ASC, p2 ASC
+"""
+
+# 1468
+"""
+WITH tax_table AS (
+    SELECT s.company_id, MAX(s.salary) AS 'max_salary'
+    FROM Salaries s
+    GROUP BY s.company_id
+)
+
+SELECT s2.company_id, s2.employee_id, s2.employee_name
+      ,ROUND((1 - CASE WHEN t.max_salary < 1000 THEN 0
+            WHEN t.max_salary <= 10000 THEN 24/100
+            WHEN t.max_salary > 10000 THEN 49/100
+       END) * s2.salary, 0) AS 'salary' 
+FROM Salaries s2
+LEFT JOIN tax_table t
+ON s2.company_id = t.company_id
+"""
+
+# 1479
+"""
+SELECT i.item_category AS 'CATEGORY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 2 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'MONDAY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 3 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'TUESDAY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 4 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'WEDNESDAY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 5 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'THURSDAY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 6 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'FRIDAY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 7 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'SATURDAY'
+      ,SUM(CASE WHEN DAYOFWEEK(o.order_date) = 1 THEN IFNULL(o.quantity, 0) ELSE 0 END) AS 'SUNDAY'
+FROM Orders o
+RIGHT JOIN Items i
+ON o.item_id = i.item_id
+GROUP BY i.item_category
+ORDER BY i.item_category ASC
+"""
+
+# 1484
+"""
+SELECT a.sell_date, COUNT(DISTINCT a.product) AS 'num_sold'
+      ,GROUP_CONCAT(DISTINCT a.product ORDER BY a.product ASC SEPARATOR ',') AS 'products'
+FROM Activities a
+GROUP BY a.sell_date
+"""
+
+# 1495
+"""
+SELECT DISTINCT c.title
+FROM TVProgram t
+LEFT JOIN Content c
+ON t.content_id = c.content_id
+WHERE MONTH(t.program_date) = 6
+AND YEAR(t.program_date) = 2020
+AND c.Kids_content = 'Y'
+AND c.content_type = 'Movies'
+"""
+
+# 1501
+"""
+WITH id2country AS (
+    SELECT p.id, p.name, c.name AS 'country_name'
+    FROM Person p
+    LEFT JOIN Country c
+    ON SUBSTRING(p.phone_number, 1, 3) = c.country_code
+), caller_flatten AS (
+    SELECT c1.caller_id AS 'id', c1.duration
+    FROM Calls c1
+    UNION ALL
+    SELECT c2.callee_id AS 'id', c2.duration
+    FROM Calls c2
+), duration AS (
+    SELECT i.country_name, AVG(c3.duration) AS 'avg_duration'
+    FROM caller_flatten c3
+    LEFT JOIN id2country i
+    ON c3.id = i.id
+    GROUP BY i.country_name
+)
+
+SELECT d.country_name AS 'country'
+FROM duration d
+WHERE d.avg_duration > (SELECT AVG(duration)
+                        FROM Calls)
+"""
+
+# 1511
+"""
+SELECT s.customer_id, c.name
+FROM (
+    SELECT o.customer_id
+          ,SUM(CASE WHEN MONTH(o.order_date) = 6 AND YEAR(o.order_date) = 2020 THEN p.price * o.quantity 
+                    ELSE 0 END) AS "June"
+          ,SUM(CASE WHEN MONTH(o.order_date) = 7 AND YEAR(o.order_date) = 2020 THEN p.price * o.quantity 
+                    ELSE 0 END) AS "July"
+    FROM Orders o
+    LEFT JOIN Product p
+    ON o.product_id = p.product_id
+    GROUP BY o.customer_id
+    ) s
+LEFT JOIN Customers c
+ON c.customer_id = s.customer_id
+WHERE s.June >= 100 AND s.July >= 100
+"""
+
+# 1517
+"""
+SELECT *
+FROM Users u
+WHERE u.mail REGEXP '^[A-Za-z]+[A-Za-z0-9_.-]*@leetcode.com'
+"""
+
+# 1527
+"""
+SELECT *
+FROM Patients p
+WHERE p.conditions LIKE '% DIAB1%' 
+OR p.conditions LIKE 'DIAB1%'
+"""
+
+# 1532
+"""
+SELECT c.name AS 'customer_name'
+      ,r.customer_id
+      ,r.order_id
+      ,r.order_date
+FROM (
+    SELECT o.order_id
+          ,o.order_date
+          ,o.customer_id
+          ,ROW_NUMBER() OVER(PARTITION BY o.customer_id ORDER BY o.order_date DESC) AS 'row_number'
+    FROM Orders o
+    ) r
+LEFT JOIN Customers c
+ON c.customer_id = r.customer_id
+WHERE r.row_number <= 3
+ORDER BY customer_name ASC, customer_id ASC, order_date DESC
+"""
+
+# 1543
+"""
+SELECT TRIM(LOWER(s.product_name)) AS 'product_name', DATE_FORMAT(s.sale_date, '%Y-%m') AS 'sale_date', COUNT(1) AS 'total'
+FROM Sales s
+GROUP BY TRIM(LOWER(s.product_name)) , DATE_FORMAT(s.sale_date, '%Y-%M')
+ORDER BY product_name ASC, sale_date ASC
+"""
+
+# 1549
+"""
+SELECT p.product_name
+      ,r.product_id
+      ,o2.order_id
+      ,o2.order_date
+FROM (
+    SELECT o.product_id, MAX(o.order_date) AS 'max_date'
+    FROM Orders o
+    GROUP BY o.product_id
+    ) r
+JOIN Orders o2
+ON o2.product_id = r.product_id
+AND o2.order_date = r.max_date
+
+LEFT JOIN Products p
+ON r.product_id = p.product_id
+ORDER BY product_name ASC, product_id ASC, order_id ASC
+"""
+
+# 1555
+"""
+SELECT u2.user_id, u2.user_name, u2.credit + IFNULL(r.total_amount, 0) AS 'credit'
+      ,CASE WHEN u2.credit + IFNULL(r.total_amount, 0) < 0 THEN 'Yes'
+            ELSE 'No' END AS 'credit_limit_breached'
+FROM Users u2
+LEFT JOIN (
+    SELECT u.user_id
+          ,SUM(CASE WHEN t1.paid_by = u.user_id THEN -1 * t1.amount
+                    ELSE t1.amount END) AS 'total_amount'
+    FROM Users u
+    LEFT JOIN Transactions t1
+    ON t1.paid_by = u.user_id
+    OR t1.paid_to = u.user_id
+    GROUP BY u.user_id
+    ) r
+ON u2.user_id = r.user_id
+"""
+
+# 1565
+"""
+SELECT DATE_FORMAT(o.order_date, '%Y-%m') AS 'month'
+      ,COUNT(DISTINCT o.order_id) AS 'order_count'
+      ,COUNT(DISTINCT o.customer_id) AS 'customer_count'
+FROM Orders o
+WHERE o.invoice > 20
+GROUP BY DATE_FORMAT(o.order_date, '%Y-%m')
+"""
+
+# 1571
+"""
+SELECT w.name AS 'warehouse_name', SUM(w.units * p.Width * p.Length * p.Height) AS 'volume'
+FROM Warehouse w
+LEFT JOIN Products p
+ON w.product_id = p.product_id
+GROUP BY w.name
+"""
+
+# 1581
+"""
+SELECT v.customer_id, COUNT(1) AS 'count_no_trans'
+FROM Visits v
+LEFT JOIN Transactions t
+ON v.visit_id = t.visit_id
+WHERE t.visit_id IS NULL
+GROUP BY v.customer_id
+"""
+
+# 1587
+"""
+SELECT u.name, SUM(t.amount) AS 'balance'
+FROM Users u
+LEFT JOIN Transactions t
+ON u.account = t.account
+GROUP BY t.account
+HAVING balance > 10000
+"""
+
+# 1596
+"""
+WITH orders_group AS (
+    SELECT o.customer_id, o.product_id, COUNT(1) AS 'product_count'
+    FROM Orders o
+    GROUP BY o.customer_id, o.product_id
+), most_order AS (
+    SELECT og.customer_id, MAX(og.product_count) AS 'max_product'
+    FROM orders_group og
+    GROUP BY og.customer_id
+)
+
+SELECT o1.customer_id, o1.product_id, p.product_name
+FROM orders_group o1
+JOIN most_order m
+ON o1.customer_id = m.customer_id
+AND o1.product_count = m.max_product
+LEFT JOIN Products p
+ON o1.product_id = p.product_id
+"""
+
+# 1607
+"""
+SELECT s2.seller_name
+FROM Seller s2
+WHERE s2.seller_name NOT IN (
+    SELECT s.seller_name
+    FROM Orders o
+    LEFT JOIN Seller s
+    ON o.seller_id = s.seller_id
+    WHERE YEAR(sale_date) = 2020
+)
+ORDER BY s2.seller_name ASC
+"""
+
+# 1613
+"""
+WITH RECURSIVE id_table AS (
+    SELECT 1 AS customer_id
+    UNION ALL
+    SELECT customer_id + 1
+    FROM id_table
+    WHERE customer_id + 1 <= (SELECT MAX(customer_id) FROM Customers)
+)
+
+SELECT i.customer_id AS 'ids'
+FROM id_table i
+WHERE i.customer_id NOT IN (SELECT customer_id FROM Customers)
+ORDER BY customer_id ASC
+"""
+
+# 1626
+"""
+SELECT a.student_name AS 'member_A'
+      ,b.student_name AS 'member_B'
+      ,c.student_name AS 'member_C'
+FROM SchoolA a
+JOIN SchoolB b
+ON a.student_id <> b.student_id
+AND a.student_name <> b.student_name
+JOIN SchoolC c
+ON a.student_id <> c.student_id
+AND a.student_name <> c.student_name
+AND b.student_id <> c.student_id
+AND b.student_name <> c.student_name
+"""
+
+# 1633
+"""
+SELECT r.contest_id, ROUND(COUNT(1) * 100 / (SELECT COUNT(user_id) FROM Users), 2) AS 'percentage'
+FROM Register r
+GROUP BY r.contest_id
+ORDER BY percentage DESC, contest_id ASC
+"""
+
+# 1635
+"""
+WITH RECURSIVE months AS (
+    SELECT 1 AS 'month',
+           2020 AS 'year'
+    UNION ALL
+    SELECT month + 1, year
+    FROM months
+    WHERE month < 12
+), active_drivers AS (
+    SELECT m.month, COUNT(d.driver_id) AS 'active_drivers'
+    FROM months m
+    LEFT JOIN Drivers d
+    ON m.year > YEAR(d.join_date)
+    OR (m.month >= MONTH(d.join_date) AND m.year = YEAR(d.join_date))
+    GROUP BY m.month
+), accepted_rides AS (
+    SELECT m.month, COUNT(rides.ride_id) AS 'accepted_rides'
+    FROM months m
+    LEFT JOIN  (SELECT a.ride_id, r.requested_at
+                FROM AcceptedRides a
+                JOIN Rides r
+                ON a.ride_id = r.ride_id) rides
+    ON m.month = MONTH(rides.requested_at)
+    AND m.year = YEAR(rides.requested_at)
+    GROUP BY m.month
+)
+
+SELECT a1.month, a1.active_drivers, a2.accepted_rides
+FROM active_drivers a1
+LEFT JOIN accepted_rides a2
+ON a1.month = a2.month
+"""
+
+# 1645
+"""
+WITH RECURSIVE months AS (
+    SELECT 1 AS 'month',
+           2020 AS 'year'
+    UNION ALL
+    SELECT month + 1, year
+    FROM months
+    WHERE month < 12
+), active_drivers AS (
+    SELECT m.month, COUNT(d.driver_id) AS 'active_drivers'
+    FROM months m
+    LEFT JOIN Drivers d
+    ON m.year > YEAR(d.join_date)
+    OR (m.month >= MONTH(d.join_date) AND m.year = YEAR(d.join_date))
+    GROUP BY m.month
+), active_accepted_drivers AS (
+    SELECT m.month, COUNT(DISTINCT rides.driver_id) AS 'accepted_drivers'
+    FROM months m
+    LEFT JOIN  (SELECT a.driver_id, r.requested_at
+                FROM AcceptedRides a
+                JOIN Rides r
+                ON a.ride_id = r.ride_id) rides
+    ON m.month = MONTH(rides.requested_at)
+    AND m.year = YEAR(rides.requested_at)
+    GROUP BY m.month
+)
+
+SELECT a1.month, CASE WHEN a1.active_drivers = 0 THEN 0
+                      ELSE ROUND((a2.accepted_drivers/a1.active_drivers) * 100, 2)
+                      END AS 'working_percentage'
+FROM active_drivers a1
+LEFT JOIN active_accepted_drivers a2
+ON a1.month = a2.month
+"""
+
+# 1651
+"""
+WITH RECURSIVE months AS (
+    SELECT 1 AS 'month',
+           2020 AS 'year'
+    UNION ALL
+    SELECT month + 1, year
+    FROM months
+    WHERE month < 12
+), accepted AS (
+    SELECT a.ride_id, r.requested_at, a.ride_distance, a.ride_duration
+    FROM AcceptedRides a
+    JOIN Rides r
+    ON a.ride_id = r.ride_id
+), monthly AS (
+    SELECT m.month, SUM(IFNULL(ac.ride_distance, 0)) AS 'month_ride_distance', SUM(IFNULL(ac.ride_duration, 0)) AS 'month_ride_duration'
+    FROM months m
+    LEFT JOIN accepted ac
+    ON m.month = MONTH(ac.requested_at)
+    AND m.year = YEAR(ac.requested_at)
+    GROUP BY m.month
+)
+
+SELECT m1.month, ROUND(SUM(m2.month_ride_distance)/3, 2) AS 'average_ride_distance'
+      ,ROUND(SUM(m2.month_ride_duration)/3, 2) AS 'average_ride_duration'
+FROM monthly m1
+LEFT JOIN monthly m2
+ON m2.month - m1.month < 3
+AND m2.month >= m1.month
+GROUP BY m1.month
+HAVING month <= 10
+ORDER BY month
+"""
+
+# 1661
+"""
+SELECT a1.machine_id, ROUND(AVG(a1.timestamp - a2.timestamp), 3) AS 'processing_time'
+FROM Activity a1
+LEFT JOIN Activity a2
+ON a1.machine_id = a2.machine_id
+AND a1.process_id = a2.process_id
+AND a1.activity_type != a2.activity_type
+WHERE a1.activity_type = 'end'
+GROUP BY a1.machine_id
+"""
+
+# 1667
+"""
+SELECT user_id, CONCAT(UPPER(LEFT(name, 1)), LOWER(SUBSTRING(name, 2))) AS 'name'
+FROM Users
+ORDER BY user_id ASC
+"""
+
+# 1677
+"""
+SELECT p.name, SUM(i.rest) AS 'rest', SUM(i.paid) AS 'paid', SUM(i.canceled) AS 'canceled', SUM(i.refunded) AS 'refunded'
+FROM Invoice i
+LEFT JOIN Product p
+ON i.product_id = p.product_id
+GROUP BY p.name
+ORDER BY name ASC
+"""
+
+# 1683
+"""
+SELECT t.tweet_id
+FROM Tweets t
+WHERE LENGTH(t.content) > 15
+"""
+
+# 1693
+"""
+SELECT d.date_id, d.make_name, COUNT(DISTINCT d.lead_id) AS 'unique_leads', COUNT(DISTINCT d.partner_id) AS 'unique_partners'
+FROM DailySales d
+GROUP BY d.date_id, d.make_name
+"""
+
+# 1699
+"""
+SELECT c2.person1, c2.person2, COUNT(1) AS 'call_count', SUM(c2.duration) AS 'total_duration'
+FROM (
+    SELECT CASE WHEN c.from_id > c.to_id THEN c.to_id
+                ELSE c.from_id END AS 'person1'
+          ,CASE WHEN c.from_id < c.to_id THEN c.to_id
+                ELSE c.from_id END AS 'person2'
+          ,c.duration
+    FROM Calls c
+) c2
+GROUP BY c2.person1, c2.person2
+"""
+
+# 1709
+"""
+WITH visit AS (
+    SELECT u.user_id, u.visit_date, ROW_NUMBER() OVER(PARTITION BY u.user_id ORDER BY u.visit_date ASC) AS 'row_number'
+    FROM UserVisits u
+)
+
+SELECT v1.user_id, MAX(DATEDIFF(CASE WHEN v2.visit_date IS NULL THEN '2021-1-1' ELSE v2.visit_date END, v1.visit_date)) AS 'biggest_window'
+FROM visit v1
+LEFT JOIN visit v2
+ON v1.row_number + 1 = v2.row_number
+AND v1.user_id = v2.user_id
+GROUP BY v1.user_id
+ORDER BY user_id ASC
+"""
+
+# 1715
+"""
+SELECT SUM(b.apple_count + IFNULL(c.apple_count, 0)) AS 'apple_count'
+      ,SUM(b.orange_count + IFNULL(c.orange_count, 0)) AS 'orange_count'
+FROM Boxes b
+LEFT JOIN Chests c
+ON b.chest_id = c.chest_id
+"""
+
+# 1729
+"""
+SELECT f.user_id, COUNT(1) AS 'followers_count'
+FROM Followers f
+GROUP BY f.user_id
+ORDER BY f.user_id ASC
+"""
+
+# 1731
+"""
+SELECT t.employee_id, e2.name, t.reports_count, ROUND(t.average_age, 0) AS 'average_age'
+FROM (
+    SELECT e.reports_to AS 'employee_id', COUNT(1) AS 'reports_count', AVG(e.age) AS 'average_age'
+    FROM Employees e
+    WHERE e.reports_to IS NOT NULL
+    GROUP BY e.reports_to
+    ) t
+LEFT JOIN Employees e2
+ON e2.employee_id = t.employee_id
+ORDER BY employee_id ASC
+"""
+
+# 1741
+"""
+SELECT e.event_day AS 'day', e.emp_id, SUM(e.out_time - e.in_time) AS 'total_time'
+FROM Employees e
+GROUP BY e.event_day, e.emp_id
+"""
+
+# 1747
+"""
+SELECT DISTINCT l.account_id
+FROM LogInfo l
+JOIN LogInfo l2
+ON (l2.login BETWEEN l.login AND l.logout
+OR l2.logout BETWEEN l.login AND l.logout)
+AND l.account_id = l2.account_id
+AND l.ip_address != l2.ip_address
+"""
+
+# 1757
+"""
+SELECT p.product_id
+FROM Products p
+WHERE p.low_fats = 'Y'
+AND p.recyclable = 'Y'
+"""
+
+# 1767
+"""
+WITH RECURSIVE pairs AS (
+    SELECT t.task_id, 1 AS 'subtask_id'
+    FROM Tasks t
+    UNION ALL
+    SELECT p.task_id, p.subtask_id + 1 AS 'subtask_id'
+    FROM pairs p
+    WHERE p.subtask_id + 1 <= (SELECT t2.subtasks_count FROM Tasks t2 WHERE t2.task_id = p.task_id)
+)
+
+SELECT p.task_id, p.subtask_id
+FROM pairs p
+LEFT JOIN Executed e
+ON p.task_id = e.task_id
+AND p.subtask_id = e.subtask_id
+WHERE e.task_id IS NULL
+"""
+
+# 1777
+"""
+SELECT p.product_id
+      ,SUM(CASE WHEN p.store = 'store1' THEN p.price
+            ELSE NULL END) AS 'store1'
+      ,SUM(CASE WHEN p.store = 'store2' THEN p.price
+            ELSE NULL END) AS 'store2'
+      ,SUM(CASE WHEN p.store = 'store3' THEN p.price
+            ELSE NULL END) AS 'store3'
+FROM Products p
+GROUP BY p.product_id
+"""
+
+# 1783
+"""
+WITH c AS (
+    SELECT Wimbledon AS 'player_id'
+    FROM Championships
+    UNION ALL
+    SELECT Fr_open AS 'player_id'
+    FROM Championships
+    UNION ALL
+    SELECT US_open AS 'player_id'
+    FROM Championships
+    UNION ALL
+    SELECT Au_open AS 'player_id'
+    FROM Championships
+), championships_count AS (
+    SELECT c.player_id, COUNT(1) AS 'grand_slams_count'
+    FROM c
+    GROUP BY c.player_id
+)
+
+SELECT c2.player_id, p.player_name, c2.grand_slams_count
+FROM championships_count c2
+LEFT JOIN Players p
+ON p.player_id = c2.player_id
+"""
+
+# 1789
+"""
+SELECT e.employee_id , e.department_id
+FROM Employee e
+WHERE e.primary_flag = 'Y'
+UNION
+(
+    SELECT e2.employee_id , e2.department_id
+    FROM Employee e2
+    GROUP BY e2.employee_id
+    HAVING COUNT(1) = 1
+)
+"""
+
+# 1795
+"""
+SELECT p.product_id, 'store1' AS 'store', p.store1 AS 'price'
+FROM Products p
+WHERE p.store1 IS NOT NULL
+UNION ALL
+(
+    SELECT p.product_id, 'store2' AS 'store', p.store2 AS 'price'
+    FROM Products p
+    WHERE p.store2 IS NOT NULL
+)
+UNION ALL
+(
+    SELECT p.product_id, 'store3' AS 'store', p.store3 AS 'price'
+    FROM Products p
+    WHERE p.store3 IS NOT NULL
+)
+"""
+
+# 1809
+"""
+SELECT p.session_id
+FROM Playback p
+LEFT JOIN Ads a
+ON a.timestamp BETWEEN p.start_time AND p.end_time
+AND p.customer_id = a.customer_id
+WHERE a.ad_id IS NULL
+"""
+
+# 1811
+"""
+WITH contest_user AS (
+    SELECT c.contest_id, u.user_id
+    FROM Contests c
+    LEFT JOIN Users u
+    ON c.gold_medal = u.user_id
+    OR c.silver_medal = u.user_id
+    OR c.bronze_medal = u.user_id
+), contest_user_cons AS (
+    SELECT c1.contest_id, c1.user_id, COUNT(1) AS 'count_consecutive'
+    FROM contest_user c1
+    JOIN contest_user c2
+    ON c1.user_id = c2.user_id
+    AND c2.contest_id BETWEEN c1.contest_id AND c1.contest_id + 2
+    GROUP BY c1.contest_id, c1.user_id
+    HAVING count_consecutive >= 3
+), gold_count AS (
+    SELECT c3.gold_medal AS 'user_id'
+    FROM Contests c3
+    GROUP BY c3.gold_medal
+    HAVING COUNT(1) >= 3
+), all_id AS (
+    SELECT g.user_id
+    FROM gold_count g
+    UNION
+    (
+        SELECT c4.user_id
+        FROM contest_user_cons c4
+    )
+
+)
+
+SELECT u.name, u.mail
+FROM all_id a
+LEFT JOIN Users u
+ON a.user_id = u.user_id
+"""
